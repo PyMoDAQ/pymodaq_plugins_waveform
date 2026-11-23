@@ -1,0 +1,101 @@
+"""The Waveform designer extension, in an empty Dashboard with a fake waveform output actuator"""
+import pytest
+
+pytest.importorskip('pymodaq.utils.plugin_testing')
+
+from pymodaq.utils.plugin_testing import loaded_extension
+
+from pymodaq_plugins_waveform.extensions.waveform_designer import WaveformDesigner
+
+
+def test_the_extension_loads_and_closes_without_target():
+    with loaded_extension(WaveformDesigner) as (dashboard, extension):
+        assert extension.settings['target'] in (None, '')
+        assert extension.settings.child('channels').children() == []
+
+
+import time
+
+import numpy as np
+from qtpy import QtWidgets
+
+from pymodaq.utils.data import DataActuator
+from fake_waveform_output import DAQ_Move_FakeWaveformOutput, register, make_module
+from pymodaq_plugins_waveform.daq_move_plugins.daq_move_WaveformParameter import DAQ_Move_WaveformParameter
+
+
+def wait_for(condition, timeout=5.):
+    t0 = time.time()
+    while not condition() and time.time() - t0 < timeout:
+        QtWidgets.QApplication.processEvents()
+        time.sleep(0.005)
+    return condition()
+
+
+@pytest.fixture
+def designer():
+    register('FakeWaveformOutput', DAQ_Move_FakeWaveformOutput)
+    register('WaveformParameter', DAQ_Move_WaveformParameter)
+    with loaded_extension(WaveformDesigner) as (dashboard, extension):
+        output = make_module('FakeWaveformOutput', 'ao')
+        dashboard.modules_manager.add_modules([output])
+        extension.refresh_targets()
+        yield extension, output
+        output.quit_fun()
+
+
+def test_the_channels_of_the_target_become_groups_of_settings(designer):
+    extension, output = designer
+
+    assert extension.settings['target'] == 'ao'
+    assert [group.name() for group in extension.settings.child('channels').children()] == ['ch0', 'ch1']
+
+
+def test_sending_loads_the_waveforms_in_the_target(designer):
+    extension, output = designer
+    extension.settings.child('channels', 'ch1', 'waveform').setValue('dc')
+
+    done = []
+    output.move_done_signal.connect(done.append)
+
+    assert extension.send()
+
+    assert wait_for(lambda: done)
+    sine, dc = done[0].data
+    assert 0.9 < np.max(sine) <= 1.  # the sine of amplitude 1 V
+    assert np.allclose(dc, dc[0])  # the DC of the other channel
+
+
+def test_a_waveform_that_exceeds_the_target_is_not_sent(designer, caplog):
+    extension, output = designer
+    extension.settings.child('channels', 'ch0', 'parameters', 'amplitude').setValue(50.)
+
+    assert not extension.send()
+
+
+def test_the_parameters_to_scan_are_listed_by_the_waveforms(designer):
+    extension, output = designer
+
+    keys = extension.scannable_keys()
+
+    assert keys['Channel 1: frequency'] == (0, 'frequency')
+    assert 'Channel 2: amplitude' in keys
+
+
+def test_moving_a_parameter_actuator_loads_the_waveform_and_ends_the_move(designer):
+    extension, output = designer
+    extension.create_parameter_actuator()
+    assert wait_for(lambda: extension.parameter_modules())
+    (actuator,) = extension.parameter_modules()
+    assert wait_for(lambda: 'Channel 1: amplitude' in actuator.settings.child(
+        actuator._hw_settings_name, 'parameter').opts['limits'])
+    actuator.settings.child(actuator._hw_settings_name, 'parameter').setValue('Channel 1: amplitude')
+    done, loaded = [], []
+    actuator.move_done_signal.connect(done.append)
+    output.move_done_signal.connect(loaded.append)
+
+    actuator.move_abs(DataActuator('amplitude', data=3.))
+
+    assert wait_for(lambda: done and loaded)
+    assert extension.settings['channels', 'ch0', 'parameters', 'amplitude'] == 3.
+    assert 2.5 < np.max(loaded[0].data[0]) <= 3.
