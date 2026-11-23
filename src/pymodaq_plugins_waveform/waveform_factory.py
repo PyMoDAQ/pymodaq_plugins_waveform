@@ -40,7 +40,7 @@ WAVEFORM_VERSION = 1
 
 def waveform_field(default: Any, unit: Optional[str] = None, title: str = '', min: Optional[float] = None,
                    max: Optional[float] = None, tip: str = '', type: Optional[str] = None,
-                   limits: Optional[list] = None) -> Any:
+                   limits: Optional[list] = None, scannable: Optional[bool] = None) -> Any:
     """A dataclass field that is a parameter of the waveform
 
     Parameters
@@ -53,16 +53,22 @@ def waveform_field(default: Any, unit: Optional[str] = None, title: str = '', mi
     type: the type of the parameter in the settings: ``'float'`` (the default when there is a ``unit``), ``'str'`` (the
         default without unit), ``'int'``, ``'bool'`` or ``'list'`` (a choice among ``limits``)
     limits: the choices of a ``'list'`` parameter
+    scannable: True if a scan can drive this parameter. By default only the numbers (``'float'`` and ``'int'``) are,
+        not the choices, flags and texts
     """
     if unit is not None and type not in (None, 'float'):
         raise ValueError(f'A parameter with a unit is a float, not {type}')
     type = 'float' if unit is not None else (type or 'str')
+    if scannable is None:
+        scannable = type in ('float', 'int')
+    if scannable and type not in ('float', 'int'):
+        raise ValueError(f'A {type} parameter cannot be scanned')
     if type not in ('float', 'str', 'int', 'bool', 'list'):
         raise ValueError(f'Unknown parameter type {type}')
     if type == 'list' and not limits:
         raise ValueError('A list parameter needs its limits')
     return dataclasses.field(default=default, metadata=dict(unit=unit, title=title, min=min, max=max, tip=tip,
-                                                            type=type, limits=limits))
+                                                            type=type, limits=limits, scannable=scannable))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -136,6 +142,21 @@ class Waveform(ABC):
     @classmethod
     def _parameters(cls) -> list[dataclasses.Field]:
         return [field for field in dataclasses.fields(cls) if 'unit' in field.metadata]
+
+    @classmethod
+    def scannable_parameters(cls) -> list[str]:
+        """Names of the parameters that a scan can drive (the numbers, unless a field says otherwise)"""
+        return [field.name for field in cls._parameters() if field.metadata['scannable']]
+
+    def to_dict(self) -> dict:
+        """The waveform as a dictionary (its ``name`` and its parameters), to be saved and read by :meth:`from_dict`"""
+        return {'name': self.name, **{field.name: getattr(self, field.name) for field in self._parameters()}}
+
+    @classmethod
+    def from_dict(cls, description: dict) -> 'Waveform':
+        """Build the waveform of a dictionary made by :meth:`to_dict`; the class is found by its ``name``"""
+        parameters = dict(description)
+        return WaveformFactory.create(parameters.pop('name'), **parameters)
 
     @classmethod
     def params(cls) -> list[dict]:

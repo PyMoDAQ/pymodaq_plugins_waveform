@@ -209,3 +209,23 @@ def test_waveform_field_refuses_inconsistent_arguments():
         waveform_field(1, 'V', type='int')
     with pytest.raises(ValueError, match='Unknown parameter type'):
         waveform_field(1, type='complex')
+
+
+def test_only_the_numbers_are_scannable_by_default():
+    assert WaveformFactory.get_class('sine').scannable_parameters() == ['amplitude', 'frequency', 'offset', 'phase']
+    assert 'path' not in WaveformFactory.get_class('array').scannable_parameters()
+
+
+def test_a_text_parameter_cannot_be_declared_scannable():
+    with pytest.raises(ValueError):
+        waveform_field('a', scannable=True)
+
+
+def test_a_waveform_comes_back_from_its_dictionary():
+    sine = WaveformFactory.create('sine', amplitude=2., frequency=500.)
+
+    description = sine.to_dict()
+
+    assert description['name'] == 'sine'
+    assert description['frequency'] == 500.
+    assert Waveform.from_dict(description) == sine
