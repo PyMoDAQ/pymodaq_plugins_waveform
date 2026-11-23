@@ -9,9 +9,10 @@ waveform and converted.
 so an application can offer them in a list (``WaveformFactory.names()``) and create one (``WaveformFactory().get('sine',
 frequency=1e3)``), and a plugin package can add its own::
 
-    @WaveformFactory.register('gaussian')
+    @WaveformFactory.register()
     @dataclasses.dataclass
     class Gaussian(Waveform):
+        name: ClassVar[str] = 'gaussian'
         center: float = waveform_field(1e-3, 's', 'Center')
         width: float = waveform_field(1e-4, 's', 'Width')
         duration: float = waveform_field(2e-3, 's', 'Duration')
@@ -82,7 +83,6 @@ class SampledWaveform:
 class Waveform(ABC):
     """Base class of the waveforms. Subclass it with a dataclass, set ``name`` and register it"""
     name: ClassVar[str] = ''
-    title: ClassVar[str] = ''  # label in a list of waveforms, ``name`` if empty
     periodic: ClassVar[bool] = False  # True: :meth:`to_samples` gives one period to repeat
 
     def __post_init__(self):
@@ -150,17 +150,19 @@ class Waveform(ABC):
 class WaveformFactory:
     """Registry of the waveforms by name, and their creation
 
-    ``@WaveformFactory.register('sine')`` on a :class:`Waveform` dataclass registers it and gives it its ``name``. The
+    ``@WaveformFactory.register()`` on a :class:`Waveform` dataclass registers it under its ``name`` (a class attribute,
+    the only place where the name is written, as ``elt_name`` of the sequencer elements). The
     registry belongs to the class, so there is a single one whatever the number of instances.
     """
     _waveforms: dict[str, Type[Waveform]] = {}
 
     @classmethod
-    def register(cls, key: str):
-        """Class decorator registering a waveform as ``key``"""
+    def register(cls):
+        """Class decorator registering a waveform under its ``name``"""
         def inner_wrapper(wrapped_class: Type[Waveform]) -> Type[Waveform]:
-            wrapped_class.name = key
-            cls._waveforms[key] = wrapped_class
+            if not wrapped_class.name:
+                raise ValueError(f'{wrapped_class.__name__} has no name: set the class attribute ``name``')
+            cls._waveforms[wrapped_class.name] = wrapped_class
             return wrapped_class
         return inner_wrapper
 

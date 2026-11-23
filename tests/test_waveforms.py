@@ -1,4 +1,6 @@
 """The waveform factory: samples compared with values worked out by hand, the registry and the settings"""
+from typing import ClassVar
+
 import numpy as np
 import pytest
 from pymodaq_gui.parameter import Parameter
@@ -21,12 +23,24 @@ def test_registry_has_the_standard_forms():
         create_waveform('nope')
 
 
+def test_a_waveform_without_name_is_refused():
+    import dataclasses
+
+    with pytest.raises(ValueError, match='no name'):
+        @WaveformFactory.register()
+        @dataclasses.dataclass
+        class Nameless(Waveform):
+            def _to_samples(self, sample_rate):
+                return np.zeros(2), None
+
+
 def test_a_plugin_can_register_its_own_waveform():
     import dataclasses
 
-    @WaveformFactory.register('test_constant2')
+    @WaveformFactory.register()
     @dataclasses.dataclass
     class Constant2(Waveform):
+        name: ClassVar[str] = 'test_constant2'
         value: float = waveform_field(2., 'V', 'Value')
 
         def _to_samples(self, sample_rate):

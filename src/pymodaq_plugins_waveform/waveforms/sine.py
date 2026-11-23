@@ -8,10 +8,10 @@ from pymodaq_plugins_waveform.waveform_factory import Waveform, WaveformFactory,
 from pymodaq_plugins_waveform.waveforms.periodic import period, phase
 
 
-@WaveformFactory.register('sine')
+@WaveformFactory.register()
 @dataclasses.dataclass
 class Sine(Waveform):
-    title: ClassVar[str] = 'Sine'
+    name: ClassVar[str] = 'sine'
     periodic: ClassVar[bool] = True
     amplitude: float = waveform_field(1., 'V', 'Amplitude', tip='Peak value, half of the peak to peak')
     frequency: float = waveform_field(1e3, 'Hz', 'Frequency', min=0.)

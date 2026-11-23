@@ -8,10 +8,10 @@ from pymodaq_plugins_waveform.waveform_factory import Waveform, WaveformFactory,
 from pymodaq_plugins_waveform.waveforms.periodic import period, phase
 
 
-@WaveformFactory.register('triangle')
+@WaveformFactory.register()
 @dataclasses.dataclass
 class Triangle(Waveform):
-    title: ClassVar[str] = 'Triangle'
+    name: ClassVar[str] = 'triangle'
     periodic: ClassVar[bool] = True
     amplitude: float = waveform_field(1., 'V', 'Amplitude', tip='Peak value, half of the peak to peak')
     frequency: float = waveform_field(1e3, 'Hz', 'Frequency', min=0.)

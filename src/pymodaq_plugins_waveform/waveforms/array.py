@@ -8,12 +8,12 @@ import numpy as np
 from pymodaq_plugins_waveform.waveform_factory import Waveform, WaveformFactory, waveform_field
 
 
-@WaveformFactory.register('array')
+@WaveformFactory.register()
 @dataclasses.dataclass
 class Array(Waveform):
     """Samples taken as they are, from a file (``.npy`` or text) or given as ``values``; they are played at the sample
     rate of the output"""
-    title: ClassVar[str] = 'Array'
+    name: ClassVar[str] = 'array'
     path: str = waveform_field('', None, 'File', tip='.npy file or text file (csv) with one column of samples in V')
     values: Optional[np.ndarray] = None  # not a parameter: the samples when no file is given
 

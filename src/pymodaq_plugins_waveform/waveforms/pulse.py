@@ -7,10 +7,10 @@ import numpy as np
 from pymodaq_plugins_waveform.waveform_factory import (Waveform, WaveformFactory, waveform_field)
 
 
-@WaveformFactory.register('pulse')
+@WaveformFactory.register()
 @dataclasses.dataclass
 class Pulse(Waveform):
-    title: ClassVar[str] = 'Pulse'
+    name: ClassVar[str] = 'pulse'
     baseline: float = waveform_field(0., 'V', 'Baseline')
     amplitude: float = waveform_field(1., 'V', 'Amplitude', tip='Height of the pulse above the baseline')
     delay: float = waveform_field(1e-4, 's', 'Delay', min=0., tip='From the start to the rising edge')

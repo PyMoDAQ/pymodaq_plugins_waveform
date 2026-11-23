@@ -31,11 +31,11 @@ def parse_breakpoints(text: str) -> tuple[np.ndarray, np.ndarray]:
     return np.array(times), np.array(values)
 
 
-@WaveformFactory.register('piecewise')
+@WaveformFactory.register()
 @dataclasses.dataclass
 class Piecewise(Waveform):
     """Straight segments between points given as ``time:value`` pairs (seconds and volts)"""
-    title: ClassVar[str] = 'Piecewise linear'
+    name: ClassVar[str] = 'piecewise'
     points: str = waveform_field('0:0, 1e-3:1, 2e-3:0', None, 'Points',
                                  tip='time:value pairs in s and V, separated by commas or new lines. The signal '
                                      'goes in a straight line from one point to the next, from the first to the '

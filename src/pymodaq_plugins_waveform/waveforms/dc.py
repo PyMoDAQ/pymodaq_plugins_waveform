@@ -7,10 +7,10 @@ import numpy as np
 from pymodaq_plugins_waveform.waveform_factory import (Waveform, WaveformFactory, waveform_field)
 
 
-@WaveformFactory.register('dc')
+@WaveformFactory.register()
 @dataclasses.dataclass
 class DC(Waveform):
-    title: ClassVar[str] = 'DC'
+    name: ClassVar[str] = 'dc'
     level: float = waveform_field(0., 'V', 'Level')
     duration: float = waveform_field(1e-3, 's', 'Duration', min=0.)
 
