@@ -97,6 +97,22 @@ class Waveform(ABC):
     periodic: ClassVar[bool] = False  # True: :meth:`to_samples` gives one period to repeat
 
     def __post_init__(self):
+        """Called by the ``__init__`` that the dataclass decorator of each form generates, once the fields are set"""
+        self._validate_parameters()
+
+    def _validate_parameters(self) -> None:
+        """Check and normalize the value of every parameter (the fields declared with :func:`waveform_field`)
+
+        For each parameter, according to its type:
+
+        - ``float``: a pint quantity is converted to the unit of the field, any number is made a ``float``;
+        - ``int`` and ``bool``: the value is converted to this type;
+        - ``list``: the value should be one of the ``limits`` of the field;
+        - ``float`` and ``int``: the value should be within ``min`` and ``max`` if they are set.
+
+        The converted value replaces the given one. A ``ValueError`` names the waveform and the parameter when a bound
+        or a choice is not respected. A form with more to check extends :meth:`__post_init__` and calls ``super()``.
+        """
         for field in self._parameters():
             value = getattr(self, field.name)
             meta = field.metadata
