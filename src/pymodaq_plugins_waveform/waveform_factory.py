@@ -91,7 +91,6 @@ class SampledWaveform:
         return len(self.samples) / self.sample_rate
 
 
-@dataclasses.dataclass
 class Waveform(ABC):
     """Base class of the waveforms. Subclass it with a dataclass, set ``name`` and register it"""
     name: ClassVar[str] = ''
