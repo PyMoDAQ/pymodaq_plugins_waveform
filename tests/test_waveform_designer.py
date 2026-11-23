@@ -39,6 +39,7 @@ def designer():
     with loaded_extension(WaveformDesigner) as (dashboard, extension):
         output = make_module('FakeWaveformOutput', 'ao')
         dashboard.modules_manager.add_modules([output])
+        extension.modules_manager.add_modules([output])
         extension.refresh_targets()
         yield extension, output
         output.quit_fun()

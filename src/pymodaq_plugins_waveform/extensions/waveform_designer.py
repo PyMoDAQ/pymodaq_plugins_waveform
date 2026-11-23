@@ -111,7 +111,7 @@ class WaveformDesigner(CustomExt):
     # ---- the target
     def target_modules(self) -> dict[str, 'DAQ_Move']:
         """The actuators of the Dashboard that follow the contract of the waveform outputs"""
-        return {module.title: module for module in self.dashboard.modules_manager.actuators_all
+        return {module.title: module for module in self.modules_manager.actuators_all
                 if WaveformOutput.from_module(module) is not None}
 
     def refresh_targets(self):
@@ -132,6 +132,11 @@ class WaveformDesigner(CustomExt):
             self.target_changed()
         else:
             self.settings.child('channels').clearChildren()
+
+    def do_things_after_experiment_set(self, experiment_name: str, show_dashboard: bool = None):
+        """The instruments changed: look again for the targets"""
+        super().do_things_after_experiment_set(experiment_name, show_dashboard)
+        self.refresh_targets()
 
     @property
     def target(self) -> Optional['DAQ_Move']:
@@ -293,3 +298,22 @@ class WaveformDesigner(CustomExt):
         if self._parameter_actuators:
             self.dashboard.remove_modules(self._parameter_actuators)
         return True
+
+
+def main():
+    """Start a Dashboard with the Waveform designer extension"""
+    import sys
+    from pymodaq_gui.qt_utils import mkQApp
+    from pymodaq.dashboard import load_dashboard_with_arguments
+    from pymodaq.utils.gui_utils.loader_utils import create_extension
+
+    app = mkQApp(EXTENSION_NAME)
+
+    win, dashboard, _ = load_dashboard_with_arguments(show_dashboard=False, load_extension=False)
+    win.mainwindow.setVisible(False)
+    win_ext, extension = create_extension(dashboard, WaveformDesigner, show_extension=True)
+    sys.exit(app.exec())
+
+
+if __name__ == '__main__':
+    main()
