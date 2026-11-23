@@ -201,3 +201,28 @@ def test_the_toolbar_of_the_manager_is_in_the_window_of_the_extension(designer):
 
     assert toolbar in extension.get_app_toolbars()
     assert len(toolbar.actions()) >= 7  # the entries, execute, new, copy, save, reload, delete
+
+
+def test_changing_a_parameter_updates_the_actuator_set_on_it(designer):
+    extension, output = designer
+    extension.create_parameter_actuator()
+    assert wait_for(lambda: extension.parameter_modules())
+    (actuator,) = extension.parameter_modules()
+    assert wait_for(lambda: 'Channel 1: amplitude' in actuator.settings.child(
+        actuator._hw_settings_name, 'parameter').opts['limits'])
+    actuator.settings.child(actuator._hw_settings_name, 'parameter').setValue('Channel 1: amplitude')
+
+    extension.settings.child('channels', 'ch0', 'parameters', 'amplitude').setValue(1.5)
+
+    assert wait_for(lambda: actuator._current_value.value() == 1.5)
+
+
+def test_moving_a_parameter_actuator_updates_the_preview_even_if_the_waveform_is_refused(designer, monkeypatch):
+    extension, output = designer
+    previews = []
+    monkeypatch.setattr(extension, 'show_preview', lambda: previews.append(1))
+
+    extension.on_parameter_request('Channel 1: amplitude', 1000.)  # beyond the limits of the target
+
+    assert previews
+    assert extension.settings['channels', 'ch0', 'parameters', 'amplitude'] == 1000.

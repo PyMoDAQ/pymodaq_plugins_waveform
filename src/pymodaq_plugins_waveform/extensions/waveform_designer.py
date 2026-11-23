@@ -219,8 +219,16 @@ class WaveformDesigner(CustomExt):
         path = self.settings.childPath(param) or []
         if path == [OUTPUT_NAME, 'mode']:
             self.show_repetitions()
+        if len(path) == 4 and path[0] == 'channels' and path[2] == 'parameters':
+            self.update_parameter_actuators(parameter_key(int(path[1][2:]), path[3]))
         if path and (path[0] == 'channels' or path[:2] == [OUTPUT_NAME, 'sample_rate']):
             self.show_preview()
+
+    def update_parameter_actuators(self, key: str):
+        """A parameter changed in the settings: the virtual actuators set on it show its new value"""
+        for module in self.parameter_modules():
+            if module.settings[module._hw_settings_name, 'parameter'] == key:
+                module.get_actuator_value()
 
     # ---- the waveforms
     def channel_waveforms(self) -> list[Waveform]:
@@ -295,7 +303,6 @@ class WaveformDesigner(CustomExt):
         except ValueError as e:
             logger.error(str(e))
             return False
-        self.show_preview()
         hardware = module.settings.child(module._hw_settings_name, OUTPUT_NAME)
         for name in ('sample_rate', 'mode', 'repetitions'):
             hardware.child(name).setValue(self.settings[OUTPUT_NAME, name])
@@ -358,11 +365,12 @@ class WaveformDesigner(CustomExt):
             logger.error(f'Unknown waveform parameter {parameter}: choose one in the actuator')
             self._answer(False)
             return
-        self._silent = True  # send() shows the preview
+        self._silent = True  # the preview is shown once, below
         try:
             self.settings.child('channels', f'ch{channel}', 'parameters', name).setValue(position)
         finally:
             self._silent = False
+        self.show_preview()  # also when the waveforms cannot be sent
         self._waiting_for_target = True
         if not self.send():
             self._waiting_for_target = False
