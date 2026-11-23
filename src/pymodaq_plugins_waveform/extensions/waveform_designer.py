@@ -68,6 +68,7 @@ class WaveformDesigner(CustomExt):
         self._parameter_actuators: list[str] = []
         self._connected_targets: set[str] = set()
         self._waiting_for_target = False
+        self._silent = False  # True while the settings are changed by the extension: no preview for each change
         self.setup_ui()
         self.dashboard.modules_manager.modules_added_signal.connect(self.on_modules_added)
         self.refresh_targets()
@@ -151,9 +152,18 @@ class WaveformDesigner(CustomExt):
         return self.target_modules().get(self.settings['target'])
 
     def target_changed(self):
-        """One group of settings per channel of the target (one channel without target), and the output choices of the target are taken"""
+        """One group of settings per channel of the target (one without target), and the output choices of the target"""
         module = self.target
         output = WaveformOutput.from_module(module) if module is not None else None
+        self._silent = True
+        try:
+            self._build_channels(output)
+        finally:
+            self._silent = False
+        self.show_preview()
+
+    def _build_channels(self, output: Optional[WaveformOutput]):
+        """Create the settings of the channels (and take the output choices) for the capabilities of the target"""
         channels = self.settings.child('channels')
         if output is None:  # no target: one channel to design and preview waveforms, kept if there already are some
             if not channels.children():
@@ -170,13 +180,23 @@ class WaveformDesigner(CustomExt):
         self.update_parameter_choices()
 
     def value_changed(self, param):
+        """The preview follows every change of a waveform or of the sample rate"""
+        if self._silent:
+            return
         if param.name() == 'target':
             self.target_changed()
         elif param.name() == 'waveform' and param.parent().name().startswith('ch'):
-            parameters = param.parent().child('parameters')
-            parameters.clearChildren()
-            parameters.addChildren(WaveformFactory.get_class(param.value()).params())
-            self.update_parameter_choices()
+            self._silent = True
+            try:
+                parameters = param.parent().child('parameters')
+                parameters.clearChildren()
+                parameters.addChildren(WaveformFactory.get_class(param.value()).params())
+                self.update_parameter_choices()
+            finally:
+                self._silent = False
+        path = self.settings.childPath(param) or []
+        if path and (path[0] == 'channels' or path[:2] == [OUTPUT_NAME, 'sample_rate']):
+            self.show_preview()
 
     # ---- the waveforms
     def channel_waveforms(self) -> list[Waveform]:
@@ -289,7 +309,11 @@ class WaveformDesigner(CustomExt):
             self._answer(False)
             return
         position = command.attribute['position']
-        self.settings.child('channels', f'ch{channel}', 'parameters', name).setValue(float(position.value()))
+        self._silent = True  # send() shows the preview
+        try:
+            self.settings.child('channels', f'ch{channel}', 'parameters', name).setValue(float(position.value()))
+        finally:
+            self._silent = False
         self._waiting_for_target = True
         if not self.send():
             self._waiting_for_target = False

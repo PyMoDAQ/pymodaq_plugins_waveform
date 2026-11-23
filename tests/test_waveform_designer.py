@@ -120,3 +120,18 @@ def test_without_target_a_waveform_can_be_previewed_but_not_sent():
         extension.show_preview()
 
         assert not extension.send()
+
+
+def test_the_preview_follows_the_changes_of_the_settings(designer, monkeypatch):
+    extension, output = designer
+    previews = []
+    monkeypatch.setattr(extension, 'show_preview', lambda: previews.append(1))
+
+    extension.settings.child('channels', 'ch0', 'parameters', 'amplitude').setValue(2.)
+    assert len(previews) == 1
+
+    extension.settings.child('channels', 'ch1', 'waveform').setValue('square')
+    assert len(previews) == 2  # once for the new waveform, not for each of its parameters
+
+    extension.settings.child('waveform_output', 'sample_rate').setValue(2e4)
+    assert len(previews) == 3
