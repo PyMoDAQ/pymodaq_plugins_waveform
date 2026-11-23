@@ -65,7 +65,7 @@ def make_module(name: str, title: str, timeout=10.):
     """An initialized DAQ_Move of a registered plugin"""
     import pymodaq.control_modules.daq_move as dm
     dm.find_actuator_class_from_name = instruments.find_actuator_class_from_name
-    module = dm.DAQ_Move(QtWidgets.QWidget(), title=title)
+    module = dm.DAQ_Move(None, title=title)  # no UI
     module.actuator = name
     inited = []
     module.init_signal.connect(inited.append)
