@@ -53,7 +53,7 @@ def waveform_field(default: Any, unit: Optional[str] = None, title: str = '', mi
 
 
 @dataclasses.dataclass(frozen=True)
-class RealizedWaveform:
+class SampledWaveform:
     """The samples of a waveform for one sample rate
 
     Attributes
@@ -136,14 +136,14 @@ class Waveform(ABC):
     def _realize(self, sample_rate: float) -> tuple[np.ndarray, Optional[float]]:
         """The samples and, for a periodic waveform, the frequency really generated"""
 
-    def realize(self, sample_rate: Union[float, Q_]) -> RealizedWaveform:
+    def realize(self, sample_rate: Union[float, Q_]) -> SampledWaveform:
         """The samples of the waveform for ``sample_rate`` (Hz, or a pint quantity)"""
         sample_rate = float(sample_rate.m_as('Hz')) if isinstance(sample_rate, Q_) else float(sample_rate)
         if sample_rate <= 0:
             raise ValueError('The sample rate should be positive')
         samples, frequency = self._realize(sample_rate)
         requested = getattr(self, 'frequency', None)
-        return RealizedWaveform(np.asarray(samples, dtype=float), sample_rate, self.periodic, frequency,
+        return SampledWaveform(np.asarray(samples, dtype=float), sample_rate, self.periodic, frequency,
                                 0. if frequency is None else frequency - requested)
 
 
