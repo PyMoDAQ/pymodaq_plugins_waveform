@@ -174,3 +174,38 @@ def test_settings_carry_units_and_limits():
     assert params['phase']['suffix'] == 'deg' and params['phase']['siPrefix'] is False
     assert (params['duty_cycle']['min'], params['duty_cycle']['max']) == (0., 1.)
     assert params['duty_cycle']['suffix'] == ''
+
+
+def test_int_bool_and_list_parameters():
+    import dataclasses
+
+    @dataclasses.dataclass
+    class Stairs(Waveform):
+        name: ClassVar[str] = 'stairs'
+        steps: int = waveform_field(4, title='Steps', type='int', min=1, max=100)
+        reverse: bool = waveform_field(False, title='Reverse', type='bool')
+        shape: str = waveform_field('linear', title='Shape', type='list', limits=['linear', 'log'])
+
+        def _to_samples(self, sample_rate):
+            return np.zeros(2), None
+
+    params = {param['name']: param for param in Stairs.params()}
+    assert [params[n]['type'] for n in ('steps', 'reverse', 'shape')] == ['int', 'bool', 'list']
+    assert params['shape']['limits'] == ['linear', 'log'] and (params['steps']['min'], params['steps']['max']) == (1, 100)
+    group = Parameter.create(name='waveform', type='group', children=Stairs.params())
+    group['steps'], group['shape'] = 7.0, 'log'
+    wave = Stairs.from_settings(group)
+    assert (wave.steps, wave.reverse, wave.shape) == (7, False, 'log') and isinstance(wave.steps, int)
+    with pytest.raises(ValueError, match='out of its limits'):
+        Stairs(steps=0)
+    with pytest.raises(ValueError, match='not one of'):
+        Stairs(shape='cubic')
+
+
+def test_waveform_field_refuses_inconsistent_arguments():
+    with pytest.raises(ValueError, match='list parameter needs'):
+        waveform_field('a', type='list')
+    with pytest.raises(ValueError, match='unit is a float|with a unit'):
+        waveform_field(1, 'V', type='int')
+    with pytest.raises(ValueError, match='Unknown parameter type'):
+        waveform_field(1, type='complex')

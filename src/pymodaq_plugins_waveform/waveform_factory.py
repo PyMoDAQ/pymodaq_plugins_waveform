@@ -39,18 +39,30 @@ WAVEFORM_VERSION = 1
 
 
 def waveform_field(default: Any, unit: Optional[str] = None, title: str = '', min: Optional[float] = None,
-                   max: Optional[float] = None, tip: str = '') -> Any:
+                   max: Optional[float] = None, tip: str = '', type: Optional[str] = None,
+                   limits: Optional[list] = None) -> Any:
     """A dataclass field that is a parameter of the waveform
 
     Parameters
     ----------
     default: the default value
-    unit: the unit of the number (pint syntax), None for a text
+    unit: the unit of the number (pint syntax), None for a parameter that is not a physical quantity (see ``type``)
     title: the label of the parameter in the settings
     min, max: bounds of the parameter in the settings (and checked when the samples are computed)
     tip: help shown on the parameter
+    type: the type of the parameter in the settings: ``'float'`` (the default when there is a ``unit``), ``'str'`` (the
+        default without unit), ``'int'``, ``'bool'`` or ``'list'`` (a choice among ``limits``)
+    limits: the choices of a ``'list'`` parameter
     """
-    return dataclasses.field(default=default, metadata=dict(unit=unit, title=title, min=min, max=max, tip=tip))
+    if unit is not None and type not in (None, 'float'):
+        raise ValueError(f'A parameter with a unit is a float, not {type}')
+    type = 'float' if unit is not None else (type or 'str')
+    if type not in ('float', 'str', 'int', 'bool', 'list'):
+        raise ValueError(f'Unknown parameter type {type}')
+    if type == 'list' and not limits:
+        raise ValueError('A list parameter needs its limits')
+    return dataclasses.field(default=default, metadata=dict(unit=unit, title=title, min=min, max=max, tip=tip,
+                                                            type=type, limits=limits))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -88,14 +100,22 @@ class Waveform(ABC):
     def __post_init__(self):
         for field in self._parameters():
             value = getattr(self, field.name)
-            unit = field.metadata['unit']
-            if unit is not None:
+            meta = field.metadata
+            unit, type_ = meta['unit'], meta['type']
+            if type_ == 'float':
                 value = float(value.m_as(unit)) if isinstance(value, Q_) else float(value)
-                lower, upper = field.metadata['min'], field.metadata['max']
+            elif type_ == 'int':
+                value = int(value)
+            elif type_ == 'bool':
+                value = bool(value)
+            elif type_ == 'list' and value not in meta['limits']:
+                raise ValueError(f'{self.name}: {field.name} = {value} is not one of {meta["limits"]}')
+            if type_ in ('float', 'int'):
+                lower, upper = meta['min'], meta['max']
                 if (lower is not None and value < lower) or (upper is not None and value > upper):
-                    raise ValueError(f'{self.name}: {field.name} = {value} {unit} is out of its limits '
+                    raise ValueError(f'{self.name}: {field.name} = {value} {unit or ""} is out of its limits '
                                      f'({lower}, {upper})')
-                setattr(self, field.name, value)
+            setattr(self, field.name, value)
 
     # ---- the description as settings
     @classmethod
@@ -110,11 +130,16 @@ class Waveform(ABC):
             meta = field.metadata
             param = {'title': meta['title'] or field.name, 'name': field.name, 'value': field.default,
                      'tip': meta['tip']}
-            if meta['unit'] is None:
-                param['type'] = 'str'
-            else:
+            param['type'] = meta['type']
+            if meta['type'] == 'list':
+                param['limits'] = list(meta['limits'])
+            elif meta['type'] == 'int':
+                for key in ('min', 'max'):
+                    if meta[key] is not None:
+                        param[key] = meta[key]
+            elif meta['type'] == 'float':
                 dimensionless = meta['unit'] in ('dimensionless', 'deg')  # no SI prefix (k, m) in front of these
-                param.update(type='float', suffix='' if meta['unit'] == 'dimensionless' else meta['unit'],
+                param.update(suffix='' if meta['unit'] == 'dimensionless' else meta['unit'],
                              siPrefix=not dimensionless)
                 for key in ('min', 'max'):
                     if meta[key] is not None:
