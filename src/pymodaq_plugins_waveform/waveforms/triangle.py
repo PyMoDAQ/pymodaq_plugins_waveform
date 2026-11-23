@@ -4,8 +4,8 @@ from typing import ClassVar
 
 import numpy as np
 
-from pymodaq_plugins_waveform.waveforms.waveform_factory import (
-    Waveform, WaveformFactory, waveform_field, _period, _phase)
+from pymodaq_plugins_waveform.waveform_factory import Waveform, WaveformFactory, waveform_field
+from pymodaq_plugins_waveform.waveforms.periodic import period, phase
 
 
 @WaveformFactory.register('triangle')
@@ -21,8 +21,8 @@ class Triangle(Waveform):
                                      tip='Fraction of the period spent rising')
 
     def _realize(self, sample_rate):
-        n, frequency = _period(self.frequency, sample_rate)
+        n, frequency = period(self.frequency, sample_rate)
         s = self.symmetry
-        x = (_phase(n, self.phase) + s / 2) % 1.  # a symmetric triangle crosses zero rising at phase 0
+        x = (phase(n, self.phase) + s / 2) % 1.  # a symmetric triangle crosses zero rising at phase 0
         y = np.where(x < s, -1 + 2 * x / s, 1 - 2 * (x - s) / (1 - s))
         return self.offset + self.amplitude * y, frequency

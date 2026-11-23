@@ -4,8 +4,8 @@ from typing import ClassVar
 
 import numpy as np
 
-from pymodaq_plugins_waveform.waveforms.waveform_factory import (
-    Waveform, WaveformFactory, waveform_field, _period, _phase)
+from pymodaq_plugins_waveform.waveform_factory import Waveform, WaveformFactory, waveform_field
+from pymodaq_plugins_waveform.waveforms.periodic import period, phase
 
 
 @WaveformFactory.register('sawtooth')
@@ -19,5 +19,5 @@ class Sawtooth(Waveform):
     phase: float = waveform_field(0., 'deg', 'Phase')
 
     def _realize(self, sample_rate):
-        n, frequency = _period(self.frequency, sample_rate)
-        return self.offset + self.amplitude * (2 * ((_phase(n, self.phase) + 0.5) % 1.) - 1), frequency
+        n, frequency = period(self.frequency, sample_rate)
+        return self.offset + self.amplitude * (2 * ((phase(n, self.phase) + 0.5) % 1.) - 1), frequency

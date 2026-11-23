@@ -5,7 +5,8 @@ from pymodaq_gui.parameter import Parameter
 
 from pymodaq_data import Q_
 from pymodaq_plugins_waveform import waveforms as wf
-from pymodaq_plugins_waveform.waveforms import WaveformFactory, Waveform, waveform_field, parse_breakpoints
+from pymodaq_plugins_waveform.waveform_factory import WaveformFactory, Waveform, waveform_field
+from pymodaq_plugins_waveform.waveforms.piecewise import parse_breakpoints
 
 
 def create_waveform(name, **parameters):
@@ -36,7 +37,7 @@ def test_a_plugin_can_register_its_own_waveform():
         assert 'test_constant2' in WaveformFactory.names()
         assert create_waveform('test_constant2', value=Q_(3000, 'mV')).realize(1e3).samples.tolist() == [3.] * 4
     finally:
-        wf.WaveformFactory.unregister('test_constant2')
+        WaveformFactory.unregister('test_constant2')
 
 
 def test_dc():
@@ -146,7 +147,7 @@ def test_limits():
                                   'array'])
 def test_settings_roundtrip(name):
     """The params make a settings group and the waveform is read back from it"""
-    cls = wf.WaveformFactory.get_class(name)
+    cls = WaveformFactory.get_class(name)
     group = Parameter.create(name='waveform', type='group', children=cls.params())
     wave = cls.from_settings(group)
     defaults = {f.name: f.default for f in cls._parameters()}

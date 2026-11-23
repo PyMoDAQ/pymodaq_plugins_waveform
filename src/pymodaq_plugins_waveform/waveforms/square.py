@@ -4,8 +4,8 @@ from typing import ClassVar
 
 import numpy as np
 
-from pymodaq_plugins_waveform.waveforms.waveform_factory import (
-    Waveform, WaveformFactory, waveform_field, _period, _phase)
+from pymodaq_plugins_waveform.waveform_factory import Waveform, WaveformFactory, waveform_field
+from pymodaq_plugins_waveform.waveforms.periodic import period, phase
 
 
 @WaveformFactory.register('square')
@@ -21,6 +21,6 @@ class Square(Waveform):
                                        tip='Fraction of the period spent high')
 
     def _realize(self, sample_rate):
-        n, frequency = _period(self.frequency, sample_rate)
-        high = _phase(n, self.phase) < self.duty_cycle
+        n, frequency = period(self.frequency, sample_rate)
+        high = phase(n, self.phase) < self.duty_cycle
         return self.offset + np.where(high, self.amplitude, -self.amplitude), frequency

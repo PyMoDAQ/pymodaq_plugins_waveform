@@ -23,8 +23,8 @@ frequency=1e3)``), and a plugin package can add its own::
 The contract with the applications and the plugins is :data:`WAVEFORM_VERSION`; evolution rule: only add forms and
 optional fields, never rename or remove one; a breaking change increments :data:`WAVEFORM_VERSION`.
 
-The forms live in the other modules of this package, which register themselves in the factory when imported (the
-``__init__`` imports them all).
+The forms are in the ``waveforms`` folder, one module each, which register themselves in the factory when imported
+(the ``__init__`` of the folder imports them all).
 """
 import dataclasses
 from abc import ABC, abstractmethod
@@ -188,23 +188,3 @@ class WaveformFactory:
     def get(self, name: str, **parameters) -> Waveform:
         """Same as :meth:`create`"""
         return self.create(name, **parameters)
-
-
-# ---- helpers of the periodic waveforms
-def _period(frequency: float, sample_rate: float) -> tuple[int, float]:
-    """Number of samples of a period and the frequency that is really generated with it
-
-    A looped buffer holds a whole number of periods, so the frequency is the one of the closest whole number of
-    samples per period.
-    """
-    if frequency <= 0:
-        raise ValueError('The frequency should be positive')
-    if frequency > sample_rate / 2:
-        raise ValueError(f'The frequency {frequency} Hz is above half the sample rate {sample_rate} Hz')
-    n = int(round(sample_rate / frequency))
-    return n, sample_rate / n
-
-
-def _phase(n: int, phase_deg: float) -> np.ndarray:
-    """The position in the period (0 to 1, going around) of each of the n samples"""
-    return (np.arange(n) / n + phase_deg / 360.) % 1.

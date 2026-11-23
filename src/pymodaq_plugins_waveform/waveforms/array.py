@@ -5,7 +5,7 @@ from typing import ClassVar, Optional
 
 import numpy as np
 
-from pymodaq_plugins_waveform.waveforms.waveform_factory import Waveform, WaveformFactory, waveform_field
+from pymodaq_plugins_waveform.waveform_factory import Waveform, WaveformFactory, waveform_field
 
 
 @WaveformFactory.register('array')

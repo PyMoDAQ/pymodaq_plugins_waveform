@@ -1,13 +1,10 @@
-"""Waveforms: the factory (:mod:`.waveform_factory`) and one module per form
+"""The standard waveforms, one module per form (the factory is :mod:`pymodaq_plugins_waveform.waveform_factory`)
 
 Importing this package imports all its submodules, so every form is registered in the
-:class:`~.waveform_factory.WaveformFactory`. To add a form to the package, add a module here: nothing else to update.
+:class:`~pymodaq_plugins_waveform.waveform_factory.WaveformFactory`. To add a form to the package, add a module here: nothing else to update.
 """
 import importlib
 import pkgutil
-
-from pymodaq_plugins_waveform.waveforms.waveform_factory import (  # noqa: F401
-    WAVEFORM_VERSION, RealizedWaveform, Waveform, WaveformFactory, waveform_field)
 
 for _module in pkgutil.iter_modules(__path__):
     importlib.import_module(f'{__name__}.{_module.name}')
