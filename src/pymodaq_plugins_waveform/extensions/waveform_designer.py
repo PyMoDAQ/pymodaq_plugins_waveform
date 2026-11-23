@@ -80,7 +80,7 @@ class WaveformDesigner(CustomExt):
         """The manager of the saved waveforms: its actions are in a toolbar of the extension, its window is not shown.
         It is made once the channels exist, as it saves them in its default entry."""
         self.waveform_manager = WaveformManager(designer=self)
-        self.waveform_manager.add_to_toolbar(self.add_toolbar('waveform_manager', 'Waveforms', add_break=False))
+        self.waveform_manager.add_to_toolbar(self.add_toolbar('waveform_manager', 'Waveforms', parent=self.mainwindow, add_break=False))
 
     # ---- the interface
     def setup_docks_and_widgets(self):
