@@ -85,11 +85,11 @@ class WaveformDesigner(CustomExt):
         self.preview = ViewerDispatcher(area_preview, direction='bottom')
 
     def setup_actions(self):
-        self.add_action('refresh', 'Refresh targets', 'Refresh2', 'Look again for the waveform output actuators')
-        self.add_action('preview', 'Preview', 'zoomAuto', 'Compute the waveforms and show them')
-        self.add_action('send', 'Send', 'run2', 'Send the waveforms to the target actuator')
+        self.add_action('refresh', 'Refresh targets', 'refresh', 'Look again for the waveform output actuators')
+        self.add_action('preview', 'Preview', 'visibility', 'Compute the waveforms and show them')
+        self.add_action('send', 'Send', 'start', 'Send the waveforms to the target actuator')
         self.add_action('stop', 'Stop', 'stop', 'Stop the output of the target actuator')
-        self.add_action('create_parameter_actuator', 'Create a parameter actuator', 'Add_Step',
+        self.add_action('create_parameter_actuator', 'Create a parameter actuator', 'add_circle',
                         tip=f'Create a "{PARAMETER_ACTUATOR}" actuator that a scan can move to change a parameter')
 
     def connect_things(self):
