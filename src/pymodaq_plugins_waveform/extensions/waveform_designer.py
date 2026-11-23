@@ -111,6 +111,10 @@ class WaveformDesigner(CustomExt):
 
     def setup_menus_and_toolbars(self, menubar: QtWidgets.QMenuBar = None):
         self.create_dashboard_toolbar(add_break=False)
+    def get_app_toolbars(self) -> list[QtWidgets.QToolBar]:
+        """The toolbars shown in the window of the extension: also the one of the manager"""
+        return [self.toolbar, self.get_toolbar('waveform_manager')]
+
     def validate_config(self) -> bool:
         return True
 

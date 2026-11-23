@@ -1,8 +1,13 @@
 """The actuator that a scan moves to change a parameter of a waveform of the Waveform designer extension"""
+from typing import TYPE_CHECKING
+
 from pymodaq_utils.utils import ThreadCommand
 
 from pymodaq.control_modules.move_utility_classes import (
     DAQ_Move_base, DataActuator, DataActuatorType, comon_parameters_fun)
+
+if TYPE_CHECKING:
+    from pymodaq_plugins_waveform.extensions.waveform_designer import WaveformDesigner
 
 
 class DAQ_Move_WaveformParameter(DAQ_Move_base):
@@ -21,7 +26,7 @@ class DAQ_Move_WaveformParameter(DAQ_Move_base):
               ] + comon_parameters_fun(is_multiaxes, epsilon=_epsilon)
 
     def ini_attributes(self):
-        self.controller = None
+        self.controller: 'WaveformDesigner' = None
         self.value = DataActuator(data=0.)
 
     def ini_stage(self, controller=None):

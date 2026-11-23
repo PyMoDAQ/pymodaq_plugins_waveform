@@ -183,7 +183,8 @@ def test_a_parameter_actuator_reads_and_sets_the_value_of_the_extension(designer
         actuator._hw_settings_name, 'parameter').opts['limits'])
     actuator.settings.child(actuator._hw_settings_name, 'parameter').setValue('Channel 1: amplitude')
     extension.settings.child('channels', 'ch0', 'parameters', 'amplitude').setValue(2.)
-    assert actuator.get_actuator_value().value() == 2.
+    actuator.get_actuator_value()
+    assert wait_for(lambda: actuator._current_value.value() == 2.)  # not current_value: it recurses when the origin is empty
     done = []
     actuator.move_done_signal.connect(done.append)
 
@@ -192,3 +193,11 @@ def test_a_parameter_actuator_reads_and_sets_the_value_of_the_extension(designer
     assert wait_for(lambda: done)
     assert extension.settings['channels', 'ch0', 'parameters', 'amplitude'] == 0.
     assert extension.parameter_values()['Channel 1: amplitude'] == 0.
+
+
+def test_the_toolbar_of_the_manager_is_in_the_window_of_the_extension(designer):
+    extension, _ = designer
+    toolbar = extension.get_toolbar('waveform_manager')
+
+    assert toolbar in extension.get_app_toolbars()
+    assert len(toolbar.actions()) >= 7  # the entries, execute, new, copy, save, reload, delete
