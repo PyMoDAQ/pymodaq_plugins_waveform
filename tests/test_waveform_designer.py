@@ -39,7 +39,6 @@ def designer():
     with loaded_extension(WaveformDesigner) as (dashboard, extension):
         output = make_module('FakeWaveformOutput', 'ao')
         dashboard.modules_manager.add_modules([output])
-        extension.modules_manager.add_modules([output])
         extension.refresh_targets()
         yield extension, output
         output.quit_fun()
@@ -100,3 +99,14 @@ def test_moving_a_parameter_actuator_loads_the_waveform_and_ends_the_move(design
     assert wait_for(lambda: done and loaded)
     assert extension.settings['channels', 'ch0', 'parameters', 'amplitude'] == 3.
     assert 2.5 < np.max(loaded[0].data[0]) <= 3.
+
+
+def test_an_actuator_added_to_the_dashboard_becomes_a_target(designer):
+    extension, output = designer
+    other = make_module('FakeWaveformOutput', 'ao2')
+    try:
+        extension.dashboard.modules_manager.add_modules([other])
+
+        assert set(extension.settings.child('target').opts['limits']) == {'ao', 'ao2'}
+    finally:
+        other.quit_fun()

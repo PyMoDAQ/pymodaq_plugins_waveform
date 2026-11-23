@@ -69,6 +69,7 @@ class WaveformDesigner(CustomExt):
         self._connected_targets: set[str] = set()
         self._waiting_for_target = False
         self.setup_ui()
+        self.dashboard.modules_manager.modules_added_signal.connect(self.on_modules_added)
         self.refresh_targets()
 
     # ---- the interface
@@ -132,6 +133,13 @@ class WaveformDesigner(CustomExt):
             self.target_changed()
         else:
             self.settings.child('channels').clearChildren()
+
+    def on_modules_added(self):
+        """Instruments were added to the Dashboard after the experiment was set: the manager of the extension does not
+        see them (it takes the list of the Dashboard when an experiment is set, and a new list is made when modules are
+        added), so take it again. A removal changes the list that both share."""
+        self.modules_manager.actuators_all = self.dashboard.modules_manager.actuators_all
+        self.refresh_targets()
 
     def do_things_after_experiment_set(self, experiment_name: str, show_dashboard: bool = None):
         """The instruments changed: look again for the targets"""
