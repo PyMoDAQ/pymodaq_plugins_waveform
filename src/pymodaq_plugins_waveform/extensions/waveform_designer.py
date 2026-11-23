@@ -9,7 +9,7 @@ send the waveform, and they are closed with it.
 from typing import Optional, TYPE_CHECKING
 
 import numpy as np
-from qtpy import QtWidgets
+from qtpy import QtCore, QtWidgets
 
 from pymodaq.control_modules.enums import DAQTypesEnum  # noqa: F401  (kept for the ones that subclass)
 from pymodaq.control_modules.utils import ControllerAndThread, QThreadProxy
@@ -55,6 +55,9 @@ def parameter_key(channel: int, name: str) -> str:
 
 
 class WaveformDesigner(CustomExt):
+    # emitted by the virtual actuators (they run in their own thread, the settings and the send are of the GUI thread:
+    # the connection is queued): the text of their ``parameter`` setting and the position asked
+    parameter_requested = QtCore.Signal(str, float)
     settings_name = 'WaveformDesignerSettings'
     h5_base_group_name = 'WaveformDesigner'
     params = [
@@ -73,6 +76,7 @@ class WaveformDesigner(CustomExt):
         self.setup_ui()
         self.show_repetitions()
         self.dashboard.modules_manager.modules_added_signal.connect(self.on_modules_added)
+        self.parameter_requested.connect(self.on_parameter_request)
         self.refresh_targets()
         self.setup_waveform_manager()
 
@@ -344,24 +348,19 @@ class WaveformDesigner(CustomExt):
 
     def _on_actuator_added(self, modules: list['DAQ_Move']):
         self.dashboard.module_creator.forget_callback(self._on_actuator_added)
-        for module in modules:
-            module.custom_sig.connect(self.on_parameter_request)
         self.update_parameter_choices()
 
-    def on_parameter_request(self, command: ThreadCommand):
+    def on_parameter_request(self, parameter: str, position: float):
         """A virtual actuator was moved: set the parameter, then compute and send the waveforms"""
-        if command.command != 'waveform_request':
-            return
         try:
-            channel, name = self.scannable_keys()[command.attribute['parameter']]
+            channel, name = self.scannable_keys()[parameter]
         except KeyError:
-            logger.error(f'Unknown waveform parameter {command.attribute["parameter"]}: choose one in the actuator')
+            logger.error(f'Unknown waveform parameter {parameter}: choose one in the actuator')
             self._answer(False)
             return
-        position = command.attribute['position']
         self._silent = True  # send() shows the preview
         try:
-            self.settings.child('channels', f'ch{channel}', 'parameters', name).setValue(float(position.value()))
+            self.settings.child('channels', f'ch{channel}', 'parameters', name).setValue(position)
         finally:
             self._silent = False
         self._waiting_for_target = True

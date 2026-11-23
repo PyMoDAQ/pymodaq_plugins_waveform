@@ -53,12 +53,12 @@ class DAQ_Move_WaveformParameter(DAQ_Move_base):
             self.emit_value(self.get_actuator_value())
 
     def move_abs(self, position: DataActuator):
-        """Ask the extension to build and send the waveform; ``waveform_loaded`` answers when it is done"""
+        """Ask the extension (the controller, by a signal as this plugin runs in its own thread) to build and send the
+        waveform; ``waveform_loaded`` answers when it is done"""
         position = self.check_bound(position)
         self.target_value = position
         self.value = position
-        self.emit_status(ThreadCommand('waveform_request', dict(parameter=self.settings['parameter'],
-                                                                  position=position)))
+        self.controller.parameter_requested.emit(self.settings['parameter'], float(position.value()))
 
     def waveform_loaded(self, ok: bool = True):
         """Command sent by the extension once the output actuator has loaded the waveform"""
