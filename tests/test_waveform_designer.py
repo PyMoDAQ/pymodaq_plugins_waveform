@@ -11,7 +11,8 @@ from pymodaq_plugins_waveform.extensions.waveform_designer import WaveformDesign
 def test_the_extension_loads_and_closes_without_target():
     with loaded_extension(WaveformDesigner) as (dashboard, extension):
         assert extension.settings['target'] in (None, '')
-        assert extension.settings.child('channels').children() == []
+        assert [group.name() for group in extension.settings.child('channels').children()] == ['ch0']
+        assert 'sine' in extension.settings.child('channels', 'ch0', 'waveform').opts['limits']
 
 
 import time
@@ -110,3 +111,12 @@ def test_an_actuator_added_to_the_dashboard_becomes_a_target(designer):
         assert set(extension.settings.child('target').opts['limits']) == {'ao', 'ao2'}
     finally:
         other.quit_fun()
+
+
+def test_without_target_a_waveform_can_be_previewed_but_not_sent():
+    with loaded_extension(WaveformDesigner) as (dashboard, extension):
+        extension.settings.child('channels', 'ch0', 'waveform').setValue('square')
+
+        extension.show_preview()
+
+        assert not extension.send()

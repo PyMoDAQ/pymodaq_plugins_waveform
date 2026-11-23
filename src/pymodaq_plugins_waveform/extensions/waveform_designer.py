@@ -132,7 +132,7 @@ class WaveformDesigner(CustomExt):
             target.setValue(targets[0])
             self.target_changed()
         else:
-            self.settings.child('channels').clearChildren()
+            self.target_changed()
 
     def on_modules_added(self):
         """Instruments were added to the Dashboard after the experiment was set: the manager of the extension does not
@@ -151,13 +151,16 @@ class WaveformDesigner(CustomExt):
         return self.target_modules().get(self.settings['target'])
 
     def target_changed(self):
-        """One group of settings per channel of the target, and the output choices of the target are taken"""
+        """One group of settings per channel of the target (one channel without target), and the output choices of the target are taken"""
         module = self.target
         output = WaveformOutput.from_module(module) if module is not None else None
         channels = self.settings.child('channels')
-        channels.clearChildren()
-        if output is None:
+        if output is None:  # no target: one channel to design and preview waveforms, kept if there already are some
+            if not channels.children():
+                channels.addChild(channel_group(0))
+                self.update_parameter_choices()
             return
+        channels.clearChildren()
         for index in range(output.n_channels):
             channels.addChild(channel_group(index))
         for name, value in (('sample_rate', output.sample_rate), ('mode', output.mode.value),
