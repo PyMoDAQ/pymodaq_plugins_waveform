@@ -63,7 +63,7 @@ def waveform_field(default: Any, unit: Optional[str] = None, title: str = '', mi
         scannable = type in ('float', 'int')
     if scannable and type not in ('float', 'int'):
         raise ValueError(f'A {type} parameter cannot be scanned')
-    if type not in ('float', 'str', 'int', 'bool', 'list'):
+    if type not in ('float', 'str', 'int', 'bool', 'list', 'browsepath'):
         raise ValueError(f'Unknown parameter type {type}')
     if type == 'list' and not limits:
         raise ValueError('A list parameter needs its limits')

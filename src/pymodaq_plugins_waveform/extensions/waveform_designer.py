@@ -26,6 +26,7 @@ from pymodaq_plugins_utils.hardware.waveform_output import (
 
 from pymodaq_plugins_waveform import waveforms  # noqa: F401  (registers the waveforms)
 from pymodaq_plugins_waveform.waveform_factory import Waveform, WaveformFactory
+from pymodaq_plugins_waveform.waveform_manager import WaveformManager
 
 if TYPE_CHECKING:
     from pymodaq.control_modules.daq_move import DAQ_Move
@@ -73,6 +74,13 @@ class WaveformDesigner(CustomExt):
         self.show_repetitions()
         self.dashboard.modules_manager.modules_added_signal.connect(self.on_modules_added)
         self.refresh_targets()
+        self.setup_waveform_manager()
+
+    def setup_waveform_manager(self):
+        """The manager of the saved waveforms: its actions are in a toolbar of the extension, its window is not shown.
+        It is made once the channels exist, as it saves them in its default entry."""
+        self.waveform_manager = WaveformManager(designer=self)
+        self.waveform_manager.add_to_toolbar(self.add_toolbar('waveform_manager', 'Waveforms', add_break=False))
 
     # ---- the interface
     def setup_docks_and_widgets(self):
@@ -103,7 +111,6 @@ class WaveformDesigner(CustomExt):
 
     def setup_menus_and_toolbars(self, menubar: QtWidgets.QMenuBar = None):
         self.create_dashboard_toolbar(add_break=False)
-
     def validate_config(self) -> bool:
         return True
 
@@ -215,6 +222,31 @@ class WaveformDesigner(CustomExt):
             cls = WaveformFactory.get_class(group['waveform'])
             waveforms_.append(cls.from_settings(group.child('parameters')))
         return waveforms_
+
+    def load_channels(self, descriptions: list[dict]):
+        """Set the waveforms of the channels from their descriptions (see :meth:`Waveform.to_dict`)
+
+        A description beyond the channels of the target is ignored, a channel without description is left as it is.
+        """
+        waveforms_ = [Waveform.from_dict(description) for description in descriptions]  # all valid before any change
+        groups = self.settings.child('channels').children()
+        if len(waveforms_) != len(groups):
+            logger.warning(f'{len(waveforms_)} waveforms for {len(groups)} channels')
+        self._silent = True
+        try:
+            for group, waveform in zip(groups, waveforms_):
+                parameters = group.child('parameters')
+                if group['waveform'] != waveform.name:
+                    group.child('waveform').setValue(waveform.name)
+                    parameters.clearChildren()
+                    parameters.addChildren(type(waveform).params())
+                for name, value in waveform.to_dict().items():
+                    if name != 'name':
+                        parameters.child(name).setValue(value)
+            self.update_parameter_choices()
+        finally:
+            self._silent = False
+        self.show_preview()
 
     def sampled_waveforms(self):
         rate = self.settings[OUTPUT_NAME, 'sample_rate']
@@ -339,6 +371,7 @@ class WaveformDesigner(CustomExt):
             self._answer(True)
 
     def _quit_fun(self) -> bool:
+        self.waveform_manager.quit_fun()
         if self._parameter_actuators:
             self.dashboard.remove_modules(self._parameter_actuators)
         return True

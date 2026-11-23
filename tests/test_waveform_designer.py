@@ -148,3 +148,27 @@ def test_the_repetitions_are_shown_for_the_repeat_mode_only(designer):
 
     extension.settings.child('waveform_output', 'mode').setValue('finite')
     assert not repetitions.opts['visible']
+
+
+def test_the_waveforms_are_saved_and_loaded_by_name(designer, tmp_path, monkeypatch):
+    extension = designer[0]
+    manager = extension.waveform_manager
+    monkeypatch.setattr(type(manager), 'get_entry_folder', lambda self, **kw: tmp_path)
+    extension.settings.child('channels', 'ch0', 'parameters', 'frequency').setValue(7.)
+    manager.create_entry('seven', bypass_dialog=True)
+    extension.settings.child('channels', 'ch0', 'parameters', 'frequency').setValue(3.)
+
+    manager.execute_entry('seven')
+
+    assert extension.settings['channels', 'ch0', 'parameters', 'frequency'] == 7.
+    assert (tmp_path / 'seven.toml').is_file()
+
+
+def test_a_file_of_an_unknown_version_is_refused(designer, tmp_path, monkeypatch):
+    extension = designer[0]
+    manager = extension.waveform_manager
+    monkeypatch.setattr(type(manager), 'get_entry_folder', lambda self, **kw: tmp_path)
+    (tmp_path / 'future.toml').write_text('version = 99\nchannels = []\n')
+
+    with pytest.raises(ValueError):
+        manager.read_entry(tmp_path / 'future.toml')
