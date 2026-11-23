@@ -309,6 +309,11 @@ class WaveformDesigner(CustomExt):
                 keys[parameter_key(index, name)] = (index, name)
         return keys
 
+    def parameter_values(self) -> dict[str, float]:
+        """The value in the settings of each scannable parameter, by the text of the ``parameter`` setting"""
+        return {key: float(self.settings['channels', f'ch{channel}', 'parameters', name])
+                for key, (channel, name) in self.scannable_keys().items()}
+
     def parameter_modules(self) -> list['DAQ_Move']:
         mods = []
         for name in self._parameter_actuators:

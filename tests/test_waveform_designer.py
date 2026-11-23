@@ -172,3 +172,23 @@ def test_a_file_of_an_unknown_version_is_refused(designer, tmp_path, monkeypatch
 
     with pytest.raises(ValueError):
         manager.read_entry(tmp_path / 'future.toml')
+
+
+def test_a_parameter_actuator_reads_and_sets_the_value_of_the_extension(designer):
+    extension, output = designer
+    extension.create_parameter_actuator()
+    assert wait_for(lambda: extension.parameter_modules())
+    (actuator,) = extension.parameter_modules()
+    assert wait_for(lambda: 'Channel 1: amplitude' in actuator.settings.child(
+        actuator._hw_settings_name, 'parameter').opts['limits'])
+    actuator.settings.child(actuator._hw_settings_name, 'parameter').setValue('Channel 1: amplitude')
+    extension.settings.child('channels', 'ch0', 'parameters', 'amplitude').setValue(2.)
+    assert actuator.get_actuator_value().value() == 2.
+    done = []
+    actuator.move_done_signal.connect(done.append)
+
+    actuator.move_abs(DataActuator('amplitude', data=0.))
+
+    assert wait_for(lambda: done)
+    assert extension.settings['channels', 'ch0', 'parameters', 'amplitude'] == 0.
+    assert extension.parameter_values()['Channel 1: amplitude'] == 0.

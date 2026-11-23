@@ -30,13 +30,22 @@ class DAQ_Move_WaveformParameter(DAQ_Move_base):
         return 'Waveform parameter of the Waveform designer', True
 
     def get_actuator_value(self) -> DataActuator:
+        """The value of the chosen parameter, as it is in the settings of the extension"""
+        self._take_value()
         return self.value
+
+    def _take_value(self):
+        """The value of the chosen parameter, read in the settings of the extension (the controller)"""
+        value = self.controller.parameter_values().get(self.settings['parameter'])
+        if value is not None:
+            self.value = DataActuator(data=value)
 
     def close(self):
         pass
 
     def commit_settings(self, param):
-        pass
+        if param.name() == 'parameter':
+            self.emit_value(self.get_actuator_value())
 
     def move_abs(self, position: DataActuator):
         """Ask the extension to build and send the waveform; ``waveform_loaded`` answers when it is done"""
