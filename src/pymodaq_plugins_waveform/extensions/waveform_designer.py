@@ -22,7 +22,7 @@ from pymodaq_gui.plotting.data_viewers.viewer import ViewerDispatcher
 from pymodaq_utils.logger import set_logger, get_module_name
 from pymodaq_utils.utils import ThreadCommand
 from pymodaq_plugins_utils.hardware.waveform_output import (
-    WaveformOutput, OUTPUT_NAME, waveform_output_settings_params)
+    WaveformOutput, OutputMode, OUTPUT_NAME, waveform_output_settings_params)
 
 from pymodaq_plugins_waveform import waveforms  # noqa: F401  (registers the waveforms)
 from pymodaq_plugins_waveform.waveform_factory import Waveform, WaveformFactory
@@ -70,6 +70,7 @@ class WaveformDesigner(CustomExt):
         self._waiting_for_target = False
         self._silent = False  # True while the settings are changed by the extension: no preview for each change
         self.setup_ui()
+        self.show_repetitions()
         self.dashboard.modules_manager.modules_added_signal.connect(self.on_modules_added)
         self.refresh_targets()
 
@@ -177,7 +178,13 @@ class WaveformDesigner(CustomExt):
                             ('repetitions', output.repetitions)):
             self.settings.child(OUTPUT_NAME, name).setValue(value)
         self.settings.child(OUTPUT_NAME, 'mode').setLimits([mode.value for mode in output.modes])
+        self.show_repetitions()
         self.update_parameter_choices()
+
+    def show_repetitions(self):
+        """The repetitions are only used by the ``repeat`` mode"""
+        self.settings.child(OUTPUT_NAME, 'repetitions').setOpts(
+            visible=self.settings[OUTPUT_NAME, 'mode'] == OutputMode.REPEAT.value)
 
     def value_changed(self, param):
         """The preview follows every change of a waveform or of the sample rate"""
@@ -195,6 +202,8 @@ class WaveformDesigner(CustomExt):
             finally:
                 self._silent = False
         path = self.settings.childPath(param) or []
+        if path == [OUTPUT_NAME, 'mode']:
+            self.show_repetitions()
         if path and (path[0] == 'channels' or path[:2] == [OUTPUT_NAME, 'sample_rate']):
             self.show_preview()
 

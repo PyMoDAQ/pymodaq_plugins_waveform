@@ -135,3 +135,16 @@ def test_the_preview_follows_the_changes_of_the_settings(designer, monkeypatch):
 
     extension.settings.child('waveform_output', 'sample_rate').setValue(2e4)
     assert len(previews) == 3
+
+
+def test_the_repetitions_are_shown_for_the_repeat_mode_only(designer):
+    extension, output = designer
+    repetitions = extension.settings.child('waveform_output', 'repetitions')
+
+    assert not repetitions.opts['visible']
+
+    extension.settings.child('waveform_output', 'mode').setValue('repeat')
+    assert repetitions.opts['visible']
+
+    extension.settings.child('waveform_output', 'mode').setValue('finite')
+    assert not repetitions.opts['visible']
