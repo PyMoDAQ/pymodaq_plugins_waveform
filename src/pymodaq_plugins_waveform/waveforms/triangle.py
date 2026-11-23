@@ -20,7 +20,7 @@ class Triangle(Waveform):
     symmetry: float = waveform_field(0.5, 'dimensionless', 'Symmetry', min=0.01, max=0.99,
                                      tip='Fraction of the period spent rising')
 
-    def _realize(self, sample_rate):
+    def _to_samples(self, sample_rate):
         n, frequency = period(self.frequency, sample_rate)
         s = self.symmetry
         x = (phase(n, self.phase) + s / 2) % 1.  # a symmetric triangle crosses zero rising at phase 0

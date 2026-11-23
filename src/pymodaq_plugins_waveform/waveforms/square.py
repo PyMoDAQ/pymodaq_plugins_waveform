@@ -20,7 +20,7 @@ class Square(Waveform):
     duty_cycle: float = waveform_field(0.5, 'dimensionless', 'Duty cycle', min=0., max=1.,
                                        tip='Fraction of the period spent high')
 
-    def _realize(self, sample_rate):
+    def _to_samples(self, sample_rate):
         n, frequency = period(self.frequency, sample_rate)
         high = phase(n, self.phase) < self.duty_cycle
         return self.offset + np.where(high, self.amplitude, -self.amplitude), frequency

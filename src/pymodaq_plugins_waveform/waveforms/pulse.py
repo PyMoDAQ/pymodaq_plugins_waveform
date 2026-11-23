@@ -17,7 +17,7 @@ class Pulse(Waveform):
     width: float = waveform_field(1e-4, 's', 'Width', min=0.)
     duration: float = waveform_field(1e-3, 's', 'Duration', min=0., tip='Total, the signal returns to the baseline')
 
-    def _realize(self, sample_rate):
+    def _to_samples(self, sample_rate):
         t = np.arange(self.n_samples(sample_rate)) / sample_rate
         high = (t >= self.delay) & (t < self.delay + self.width)
         return self.baseline + self.amplitude * high, None

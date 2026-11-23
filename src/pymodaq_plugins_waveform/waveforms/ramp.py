@@ -15,5 +15,5 @@ class Ramp(Waveform):
     stop: float = waveform_field(1., 'V', 'Stop')
     duration: float = waveform_field(1e-3, 's', 'Duration', min=0.)
 
-    def _realize(self, sample_rate):
+    def _to_samples(self, sample_rate):
         return np.linspace(self.start, self.stop, self.n_samples(sample_rate)), None

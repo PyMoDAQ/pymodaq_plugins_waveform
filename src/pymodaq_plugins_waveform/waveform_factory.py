@@ -1,7 +1,7 @@
 """Waveform factory: describe a signal by its parameters, get the samples for a given sample rate
 
 A waveform is a dataclass whose fields are its parameters. The same description serves a device that computes the
-signal itself from parameters and one that needs the samples (:meth:`Waveform.realize`). Fields with a ``unit`` are
+signal itself from parameters and one that needs the samples (:meth:`Waveform.to_samples`). Fields with a ``unit`` are
 numbers expressed in that unit (SI: V, s, Hz, degrees for a phase); a pint quantity is accepted when creating the
 waveform and converted.
 
@@ -16,7 +16,7 @@ frequency=1e3)``), and a plugin package can add its own::
         width: float = waveform_field(1e-4, 's', 'Width')
         duration: float = waveform_field(2e-3, 's', 'Duration')
 
-        def _realize(self, sample_rate):
+        def _to_samples(self, sample_rate):
             t = np.arange(self.n_samples(sample_rate)) / sample_rate
             return np.exp(-((t - self.center) / self.width) ** 2 / 2), None
 
@@ -83,7 +83,7 @@ class Waveform(ABC):
     """Base class of the waveforms. Subclass it with a dataclass, set ``name`` and register it"""
     name: ClassVar[str] = ''
     title: ClassVar[str] = ''  # label in a list of waveforms, ``name`` if empty
-    periodic: ClassVar[bool] = False  # True: :meth:`realize` gives one period to repeat
+    periodic: ClassVar[bool] = False  # True: :meth:`to_samples` gives one period to repeat
 
     def __post_init__(self):
         for field in self._parameters():
@@ -133,15 +133,15 @@ class Waveform(ABC):
         return max(2, int(round(getattr(self, 'duration') * sample_rate)))
 
     @abstractmethod
-    def _realize(self, sample_rate: float) -> tuple[np.ndarray, Optional[float]]:
+    def _to_samples(self, sample_rate: float) -> tuple[np.ndarray, Optional[float]]:
         """The samples and, for a periodic waveform, the frequency really generated"""
 
-    def realize(self, sample_rate: Union[float, Q_]) -> SampledWaveform:
+    def to_samples(self, sample_rate: Union[float, Q_]) -> SampledWaveform:
         """The samples of the waveform for ``sample_rate`` (Hz, or a pint quantity)"""
         sample_rate = float(sample_rate.m_as('Hz')) if isinstance(sample_rate, Q_) else float(sample_rate)
         if sample_rate <= 0:
             raise ValueError('The sample rate should be positive')
-        samples, frequency = self._realize(sample_rate)
+        samples, frequency = self._to_samples(sample_rate)
         requested = getattr(self, 'frequency', None)
         return SampledWaveform(np.asarray(samples, dtype=float), sample_rate, self.periodic, frequency,
                                 0. if frequency is None else frequency - requested)

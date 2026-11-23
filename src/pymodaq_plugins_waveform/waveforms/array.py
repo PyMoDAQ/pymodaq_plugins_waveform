@@ -17,7 +17,7 @@ class Array(Waveform):
     path: str = waveform_field('', None, 'File', tip='.npy file or text file (csv) with one column of samples in V')
     values: Optional[np.ndarray] = None  # not a parameter: the samples when no file is given
 
-    def _realize(self, sample_rate):
+    def _to_samples(self, sample_rate):
         values = self.values
         if values is None:
             if not self.path:

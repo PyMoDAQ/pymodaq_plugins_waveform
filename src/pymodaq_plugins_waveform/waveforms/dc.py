@@ -14,5 +14,5 @@ class DC(Waveform):
     level: float = waveform_field(0., 'V', 'Level')
     duration: float = waveform_field(1e-3, 's', 'Duration', min=0.)
 
-    def _realize(self, sample_rate):
+    def _to_samples(self, sample_rate):
         return np.full(self.n_samples(sample_rate), self.level), None

@@ -45,7 +45,7 @@ class Piecewise(Waveform):
         super().__post_init__()
         parse_breakpoints(self.points)  # fail at creation
 
-    def _realize(self, sample_rate):
+    def _to_samples(self, sample_rate):
         times, values = parse_breakpoints(self.points)
         t = np.arange(int(round((times[-1] - times[0]) * sample_rate)) + 1) / sample_rate + times[0]
         return np.interp(t, times, values), None

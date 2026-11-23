@@ -18,6 +18,6 @@ class Sawtooth(Waveform):
     offset: float = waveform_field(0., 'V', 'Offset')
     phase: float = waveform_field(0., 'deg', 'Phase')
 
-    def _realize(self, sample_rate):
+    def _to_samples(self, sample_rate):
         n, frequency = period(self.frequency, sample_rate)
         return self.offset + self.amplitude * (2 * ((phase(n, self.phase) + 0.5) % 1.) - 1), frequency
