@@ -69,7 +69,7 @@ def make_module(name: str, title: str, timeout=10.):
     module.actuator = name
     inited = []
     module.init_signal.connect(inited.append)
-    module.init_hardware_ui(True)
+    module.init_hardware(True)
     t0 = time.time()
     while not inited and time.time() - t0 < timeout:
         QtWidgets.QApplication.processEvents()
