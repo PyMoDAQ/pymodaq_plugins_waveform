@@ -58,7 +58,7 @@ class DAQ_Move_WaveformParameter(DAQ_Move_base):
         position = self.check_bound(position)
         self.target_value = position
         self.value = position
-        self.controller.parameter_requested.emit(self.settings['parameter'], float(position.value()))
+        self.controller.parameter_requested.emit(self._title, self.settings['parameter'], float(position.value()))
 
     def waveform_loaded(self, ok: bool = True, message: str = ''):
         """Command sent by the extension once the output actuator has loaded the waveform, or refused it

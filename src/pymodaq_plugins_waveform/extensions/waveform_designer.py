@@ -6,6 +6,8 @@ of the actuators of the Dashboard that follow the contract of
 (``Waveform parameter``) that a scan moves to change one parameter of a waveform: they ask the extension to compute and
 send the waveform, and they are closed with it.
 """
+from dataclasses import dataclass
+from functools import partial
 from typing import Optional, TYPE_CHECKING
 
 import numpy as np
@@ -50,6 +52,13 @@ def channel_group(index: int, waveform: str = DEFAULT_WAVEFORM) -> dict:
          'children': WaveformFactory.get_class(waveform).params()}]}
 
 
+@dataclass
+class PendingMove:
+    """A waveform upload asked by a virtual actuator, until the target loaded it, failed, or was stopped"""
+    requester: str  # title of the virtual actuator
+    target: str  # title of the target that received the waveforms
+
+
 def parameter_key(channel: int, name: str) -> str:
     """What the ``parameter`` setting of a virtual actuator holds"""
     return f'Channel {channel + 1}: {name}'
@@ -58,7 +67,8 @@ def parameter_key(channel: int, name: str) -> str:
 class WaveformDesigner(CustomExt):
     # emitted by the virtual actuators (they run in their own thread, the settings and the send are of the GUI thread:
     # the connection is queued): the text of their ``parameter`` setting and the position asked
-    parameter_requested = QtCore.Signal(str, float)
+    # the title of the requesting actuator, the text of its ``parameter`` setting and the position asked
+    parameter_requested = QtCore.Signal(str, str, float)
     settings_name = 'WaveformDesignerSettings'
     h5_base_group_name = 'WaveformDesigner'
     params = [
@@ -71,8 +81,8 @@ class WaveformDesigner(CustomExt):
     def __init__(self, parent: gutils.DockArea, dashboard):
         super().__init__(parent, dashboard, add_toolbar_break=False)
         self._parameter_actuators: list[str] = []
-        self._connected_targets: set[str] = set()
-        self._waiting_for_target = False
+        self._connected_targets: dict[str, tuple] = {}  # title -> (module, its slots), to tell a replaced module
+        self._pending: Optional[PendingMove] = None
         self.refusal = ''  # why the last waveforms were not sent
         self._silent = False  # True while the settings are changed by the extension: no preview for each change
         self.setup_ui()
@@ -139,22 +149,51 @@ class WaveformDesigner(CustomExt):
     def refresh_targets(self):
         """Update the list of targets, and the channels if the target changed"""
         modules = self.target_modules()
-        for title, module in modules.items():
-            if title not in self._connected_targets:
-                self._connected_targets.add(title)
-                module.move_done_signal.connect(self._on_target_done)
-                module.custom_sig.connect(self._on_target_status)
+        replaced = self._connect_targets(modules)
         targets = list(modules)
         target = self.settings.child('target')
         current = target.value()
         target.setLimits(targets)
         if current in targets:
             target.setValue(current)
+            if current in replaced:  # a new module under the same title: its channels may be different
+                self.target_changed()
         elif targets:
             target.setValue(targets[0])
             self.target_changed()
         else:
             self.target_changed()
+
+    def _connect_targets(self, modules: dict[str, 'DAQ_Move']) -> list[str]:
+        """Listen to the targets: returns the titles of the ones that are a new module under a known title"""
+        replaced = []
+        for title in list(self._connected_targets):
+            module, slots = self._connected_targets[title]
+            if modules.get(title) is not module:  # removed or replaced
+                self._disconnect_target(title)
+                if title in modules:
+                    replaced.append(title)
+        for title, module in modules.items():
+            if title not in self._connected_targets:
+                slots = (partial(self._on_target_done, title), self._on_target_failed, self._on_target_status)
+                module.move_done_signal.connect(slots[0])
+                module.custom_sig.connect(slots[2])
+                if hasattr(module, 'move_failed_signal'):  # PyMoDAQ >= 5.4
+                    module.move_failed_signal.connect(slots[1])
+                self._connected_targets[title] = (module, slots)
+        return replaced
+
+    def _disconnect_target(self, title: str):
+        module, slots = self._connected_targets.pop(title)
+        if self._pending is not None and self._pending.target == title:
+            self._finish_pending(False, f'The target {title} was removed')
+        for signal, slot in ((getattr(module, 'move_done_signal', None), slots[0]),
+                             (getattr(module, 'move_failed_signal', None), slots[1]),
+                             (getattr(module, 'custom_sig', None), slots[2])):
+            try:
+                signal.disconnect(slot)
+            except (TypeError, RuntimeError, AttributeError):  # the module is already deleted
+                pass
 
     def on_modules_added(self):
         """Instruments were added to the Dashboard after the experiment was set: the manager of the extension does not
@@ -191,8 +230,10 @@ class WaveformDesigner(CustomExt):
                 channels.addChild(channel_group(0))
                 self.update_parameter_choices()
             return
-        channels.clearChildren()
-        for index in range(output.n_channels):
+        existing = channels.children()
+        for group in existing[output.n_channels:]:  # beyond the channels of the target
+            channels.removeChild(group)
+        for index in range(len(existing), output.n_channels):  # the channels already designed are kept
             channels.addChild(channel_group(index))
         for name, value in (('sample_rate', output.sample_rate), ('mode', output.mode.value),
                             ('repetitions', output.repetitions)):
@@ -271,7 +312,13 @@ class WaveformDesigner(CustomExt):
 
     def sampled_waveforms(self):
         rate = self.settings[OUTPUT_NAME, 'sample_rate']
-        return [waveform.to_samples(rate) for waveform in self.channel_waveforms()]
+        sampled = []
+        for index, waveform in enumerate(self.channel_waveforms()):
+            try:
+                sampled.append(waveform.to_samples(rate))
+            except OSError as e:  # a file of the waveform cannot be read
+                raise ValueError(f'Channel {index + 1}: cannot read {e.filename or "the file"}: {e.strerror or e}')
+        return sampled
 
     def show_preview(self):
         """Show the channels, one viewer under the other, with the time in seconds as axis"""
@@ -304,6 +351,9 @@ class WaveformDesigner(CustomExt):
         try:
             sampled = self.sampled_waveforms()
             samples = [wave.samples for wave in sampled]
+            for index, array in enumerate(samples):
+                if not np.all(np.isfinite(array)):
+                    raise ValueError(f'Channel {index + 1}: the samples must be finite numbers (NaN or inf found)')
             output = WaveformOutput.from_module(module)
             output.check(samples, sample_rate=self.settings[OUTPUT_NAME, 'sample_rate'],
                          mode=self.settings[OUTPUT_NAME, 'mode'])
@@ -320,6 +370,8 @@ class WaveformDesigner(CustomExt):
     def stop(self):
         module = self.target
         if module is not None:
+            if self._pending is not None and self._pending.target == module.title:
+                self._finish_pending(False, f'The output of {module.title} was stopped')
             module.stop_motion()
 
     # ---- the virtual actuators that a scan moves
@@ -365,44 +417,57 @@ class WaveformDesigner(CustomExt):
         self.dashboard.module_creator.forget_callback(self._on_actuator_added)
         self.update_parameter_choices()
 
-    def on_parameter_request(self, parameter: str, position: float):
+    def on_parameter_request(self, requester: str, parameter: str, position: float):
         """A virtual actuator was moved: set the parameter, then compute and send the waveforms"""
         try:
             channel, name = self.scannable_keys()[parameter]
         except KeyError:
             message = f'Unknown waveform parameter {parameter}: choose one in the actuator'
             logger.error(message)
-            self._answer(False, message)
+            self._answer(requester, False, message)
             return
+        if self._pending is not None:  # one upload at a time: the earlier request is over
+            self._finish_pending(False, 'Replaced by a new request')
         self._silent = True  # the preview is shown once, below
         try:
             self.settings.child('channels', f'ch{channel}', 'parameters', name).setValue(position)
         finally:
             self._silent = False
         self.show_preview()  # also when the waveforms cannot be sent
-        if self.target is None:  # nothing to load them in: setting the parameter and the preview is all there is, ok to test
-            self._answer(True)
+        module = self.target
+        if module is None:  # nothing to load them in: setting the parameter and the preview is all there is, ok to test
+            self._answer(requester, True)
             return
-        self._waiting_for_target = True
+        self._pending = PendingMove(requester, module.title)
         if not self.send():
-            self._waiting_for_target = False
-            self._answer(False, self.refusal)
+            self._finish_pending(False, self.refusal)
 
-    def _answer(self, ok: bool, message: str = ''):
+    def _answer(self, requester: str, ok: bool, message: str = ''):
+        """Tell the virtual actuator that asked for the waveform (only this one) how it went"""
         for module in self.parameter_modules():
-            module.command_hardware.emit(ThreadCommand('waveform_loaded', dict(ok=ok, message=message)))
+            if module.title == requester:
+                module.command_hardware.emit(ThreadCommand('waveform_loaded', dict(ok=ok, message=message)))
+
+    def _finish_pending(self, ok: bool, message: str = ''):
+        """End the request waiting for the target, if any; late signals of its upload are then ignored"""
+        pending, self._pending = self._pending, None
+        if pending is not None:
+            self._answer(pending.requester, ok, message)
 
     def _on_target_status(self, status: ThreadCommand):
-        """The target raised an error while the waveform was being loaded: the virtual actuators are told"""
-        if status.command == ThreadStatus.ERROR and self._waiting_for_target:
-            self._waiting_for_target = False
-            self._answer(False, str(status.attribute))
+        """The target raised an error while the waveform was being loaded"""
+        if status.command == ThreadStatus.ERROR and self._pending is not None:
+            self._finish_pending(False, str(status.attribute))
 
-    def _on_target_done(self, data):
-        """The target has loaded the waveforms: finish the move of the virtual actuators waiting for it"""
-        if getattr(self, '_waiting_for_target', False):
-            self._waiting_for_target = False
-            self._answer(True)
+    def _on_target_failed(self, title: str, message: str):
+        """The plugin of the target raised an exception while moving (``move_failed_signal`` of the module)"""
+        if self._pending is not None and self._pending.target == title:
+            self._finish_pending(False, message)
+
+    def _on_target_done(self, title: str, data):
+        """A target has loaded the waveforms: finish the move of the virtual actuator waiting for this one"""
+        if self._pending is not None and self._pending.target == title:
+            self._finish_pending(True)
 
     def _quit_fun(self) -> bool:
         self.waveform_manager.quit_fun()

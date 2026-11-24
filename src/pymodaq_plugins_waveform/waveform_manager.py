@@ -7,6 +7,9 @@ An entry is a toml file of the ``waveforms`` folder of the PyMoDAQ configuration
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import os
+import tempfile
+
 import toml
 
 from qtpy import QtWidgets
@@ -54,7 +57,16 @@ class WaveformManager(ManagerBase):
             entry_path = self.entry_filepath
         content = {'version': FORMAT_VERSION,
                    'channels': [waveform.to_dict() for waveform in self.designer.channel_waveforms()]}
-        entry_path.write_text(toml.dumps(content))
+        entry_path = Path(entry_path)
+        # written aside then moved: a failure (full disk...) leaves the previous entry as it was
+        fd, temporary = tempfile.mkstemp(dir=entry_path.parent, prefix=entry_path.name, suffix='.tmp')
+        try:
+            with os.fdopen(fd, 'w') as file:
+                file.write(toml.dumps(content))
+            os.replace(temporary, entry_path)
+        except BaseException:
+            Path(temporary).unlink(missing_ok=True)
+            raise
 
     def read_entry(self, entry_path: Path) -> list[dict]:
         """The description of the waveforms of an entry, refusing the files of an unknown version"""
@@ -62,18 +74,23 @@ class WaveformManager(ManagerBase):
         if content.get('version') != FORMAT_VERSION:
             raise ValueError(f'{Path(entry_path).name}: waveform file of version {content.get("version")}, '
                              f'only version {FORMAT_VERSION} is known')
-        return content['channels']
+        channels = content.get('channels')
+        if not isinstance(channels, list) or not all(isinstance(channel, dict) for channel in channels):
+            raise ValueError(f'{Path(entry_path).name}: "channels" must be a list of tables, one per channel')
+        return channels
 
     def can_execute_entry(self) -> bool:
         return self.designer is not None
 
     def _update_entry(self, entry_path: Path):
         """Set the waveforms of the entry in the channels of the designer"""
+        self._loaded = False
         try:
             self.designer.load_channels(self.read_entry(entry_path))
-        except (ValueError, KeyError, OSError) as e:
+            self._loaded = True
+        except (ValueError, KeyError, TypeError, OSError) as e:
             logger.error(f'Cannot load the waveforms of {Path(entry_path).name}: {e}')
 
     def _execute_entry(self, entry_path: Path = None, **kwargs) -> bool:
         """Executing an entry is loading it in the channels (done when it is updated): the designer sends them"""
-        return True
+        return getattr(self, '_loaded', True)  # False if the entry was refused: nothing was applied

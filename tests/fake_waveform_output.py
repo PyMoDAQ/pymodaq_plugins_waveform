@@ -74,5 +74,7 @@ def make_module(name: str, title: str, timeout=10.):
     while not inited and time.time() - t0 < timeout:
         QtWidgets.QApplication.processEvents()
         time.sleep(0.01)
-    assert inited and inited[0], f'{name} did not initialize'
+    if not (inited and inited[0]):
+        module.quit_fun()  # the caller never gets the module to close it
+        raise AssertionError(f'{name} did not initialize')
     return module
