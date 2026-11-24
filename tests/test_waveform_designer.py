@@ -226,3 +226,40 @@ def test_moving_a_parameter_actuator_updates_the_preview_even_if_the_waveform_is
 
     assert previews
     assert extension.settings['channels', 'ch0', 'parameters', 'amplitude'] == 1000.
+
+
+def _actuator_on_amplitude(extension):
+    extension.create_parameter_actuator()
+    assert wait_for(lambda: extension.parameter_modules())
+    (actuator,) = extension.parameter_modules()
+    assert wait_for(lambda: 'Channel 1: amplitude' in actuator.settings.child(
+        actuator._hw_settings_name, 'parameter').opts['limits'])
+    actuator.settings.child(actuator._hw_settings_name, 'parameter').setValue('Channel 1: amplitude')
+    return actuator
+
+
+def test_a_refused_waveform_is_an_error_of_the_actuator_and_its_move_is_not_done(designer):
+    extension, output = designer
+    actuator = _actuator_on_amplitude(extension)
+    done = []
+    actuator.move_done_signal.connect(done.append)
+
+    actuator.move_abs(DataActuator('amplitude', data=1000.))  # beyond the limits of the target
+
+    assert wait_for(lambda: actuator._in_error)
+    assert not done
+
+
+def test_an_error_of_the_target_while_loading_is_an_error_of_the_actuator(designer):
+    from pymodaq.control_modules.thread_commands import ThreadStatus
+    from pymodaq_utils.utils import ThreadCommand
+    extension, output = designer
+    actuator = _actuator_on_amplitude(extension)
+    done = []
+    actuator.move_done_signal.connect(done.append)
+    extension._waiting_for_target = True  # as when a waveform was sent
+
+    output.custom_sig.emit(ThreadCommand(ThreadStatus.ERROR, 'the board refused the samples'))
+
+    assert wait_for(lambda: actuator._in_error)
+    assert not done

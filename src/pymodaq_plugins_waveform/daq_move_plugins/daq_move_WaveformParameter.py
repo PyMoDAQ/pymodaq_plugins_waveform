@@ -60,8 +60,14 @@ class DAQ_Move_WaveformParameter(DAQ_Move_base):
         self.value = position
         self.controller.parameter_requested.emit(self.settings['parameter'], float(position.value()))
 
-    def waveform_loaded(self, ok: bool = True):
-        """Command sent by the extension once the output actuator has loaded the waveform"""
+    def waveform_loaded(self, ok: bool = True, message: str = ''):
+        """Command sent by the extension once the output actuator has loaded the waveform, or refused it
+
+        A refusal is raised: the module is marked in error with the reason and the move is not done (``move_done`` is
+        not called), as for any actuator that cannot reach a position.
+        """
+        if not ok:
+            raise ValueError(message or 'The waveform was not loaded by the output actuator')
         self.move_done()
 
     def move_rel(self, position: DataActuator):

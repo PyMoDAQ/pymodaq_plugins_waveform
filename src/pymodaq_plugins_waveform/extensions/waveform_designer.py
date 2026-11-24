@@ -12,6 +12,7 @@ import numpy as np
 from qtpy import QtCore, QtWidgets
 
 from pymodaq.control_modules.enums import DAQTypesEnum  # noqa: F401  (kept for the ones that subclass)
+from pymodaq.control_modules.thread_commands import ThreadStatus
 from pymodaq.control_modules.utils import ControllerAndThread, QThreadProxy
 from pymodaq.utils.custom_ext import CustomExt
 from pymodaq.utils.managers.modules import ModuleType
@@ -72,6 +73,7 @@ class WaveformDesigner(CustomExt):
         self._parameter_actuators: list[str] = []
         self._connected_targets: set[str] = set()
         self._waiting_for_target = False
+        self.refusal = ''  # why the last waveforms were not sent
         self._silent = False  # True while the settings are changed by the extension: no preview for each change
         self.setup_ui()
         self.show_repetitions()
@@ -139,6 +141,7 @@ class WaveformDesigner(CustomExt):
             if title not in self._connected_targets:
                 self._connected_targets.add(title)
                 module.move_done_signal.connect(self._on_target_done)
+                module.custom_sig.connect(self._on_target_status)
         targets = list(modules)
         target = self.settings.child('target')
         current = target.value()
@@ -288,11 +291,13 @@ class WaveformDesigner(CustomExt):
     def send(self) -> bool:
         """Check the waveforms against the capabilities of the target and send them as its position
 
-        Returns False (and logs why) if they cannot be sent.
+        Returns False if they cannot be sent: the reason is logged and kept in ``refusal``.
         """
         module = self.target
+        self.refusal = ''
         if module is None:
-            logger.error('No waveform output actuator to send the waveforms to')
+            self.refusal = 'No waveform output actuator to send the waveforms to'
+            logger.error(self.refusal)
             return False
         try:
             sampled = self.sampled_waveforms()
@@ -301,7 +306,8 @@ class WaveformDesigner(CustomExt):
             output.check(samples, sample_rate=self.settings[OUTPUT_NAME, 'sample_rate'],
                          mode=self.settings[OUTPUT_NAME, 'mode'])
         except ValueError as e:
-            logger.error(str(e))
+            self.refusal = str(e)
+            logger.error(self.refusal)
             return False
         hardware = module.settings.child(module._hw_settings_name, OUTPUT_NAME)
         for name in ('sample_rate', 'mode', 'repetitions'):
@@ -362,8 +368,9 @@ class WaveformDesigner(CustomExt):
         try:
             channel, name = self.scannable_keys()[parameter]
         except KeyError:
-            logger.error(f'Unknown waveform parameter {parameter}: choose one in the actuator')
-            self._answer(False)
+            message = f'Unknown waveform parameter {parameter}: choose one in the actuator'
+            logger.error(message)
+            self._answer(False, message)
             return
         self._silent = True  # the preview is shown once, below
         try:
@@ -374,11 +381,17 @@ class WaveformDesigner(CustomExt):
         self._waiting_for_target = True
         if not self.send():
             self._waiting_for_target = False
-            self._answer(False)
+            self._answer(False, self.refusal)
 
-    def _answer(self, ok: bool):
+    def _answer(self, ok: bool, message: str = ''):
         for module in self.parameter_modules():
-            module.command_hardware.emit(ThreadCommand('waveform_loaded', ok))
+            module.command_hardware.emit(ThreadCommand('waveform_loaded', dict(ok=ok, message=message)))
+
+    def _on_target_status(self, status: ThreadCommand):
+        """The target raised an error while the waveform was being loaded: the virtual actuators are told"""
+        if status.command == ThreadStatus.ERROR and self._waiting_for_target:
+            self._waiting_for_target = False
+            self._answer(False, str(status.attribute))
 
     def _on_target_done(self, data):
         """The target has loaded the waveforms: finish the move of the virtual actuators waiting for it"""
