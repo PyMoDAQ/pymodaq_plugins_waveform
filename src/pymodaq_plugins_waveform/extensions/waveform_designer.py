@@ -105,8 +105,10 @@ class WaveformDesigner(CustomExt):
         self.add_action('preview', 'Preview', 'visibility', 'Compute the waveforms and show them')
         self.add_action('send', 'Send', 'start', 'Send the waveforms to the target actuator')
         self.add_action('stop', 'Stop', 'stop', 'Stop the output of the target actuator')
+        self.toolbar.addSeparator()
         self.add_action('create_parameter_actuator', 'Create a parameter actuator', 'add_circle',
-                        tip=f'Create a "{PARAMETER_ACTUATOR}" actuator that a scan can move to change a parameter')
+                        tip=f'Create a "{PARAMETER_ACTUATOR}" actuator that a scan can move to change a parameter',
+                        icon_color=self.get_theme().blue)
 
     def connect_things(self):
         self.connect_action('refresh', self.refresh_targets)
