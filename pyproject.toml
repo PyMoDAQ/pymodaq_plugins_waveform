@@ -21,12 +21,12 @@ keywords = [
     "arbitrary waveform generator",
 ]
 dependencies = [
-    # TEMPORARY, until PyMoDAQ 5.4.0 is released (move_failed status): then use "pymodaq>=5.4.0" and drop the
+    # TEMPORARY, until PyMoDAQ 5.4.0 is released (move_failed status): then use "pymodaq>=5.4.0" and the previous pymodaq_utils>=5.3.1, pymodaq_gui>=5.3.0, pymodaq_data>=5.3.0 and drop the
     # [tool.hatch.metadata] table below. Not publishable to PyPI as is (direct reference).
     "pymodaq @ git+https://github.com/PyMoDAQ/PyMoDAQ.git@dev#subdirectory=packages/pymodaq",
-    "pymodaq_utils>=5.3.1",
-    "pymodaq_gui>=5.3.0",
-    "pymodaq_data>=5.3.0",
+    "pymodaq_gui @ git+https://github.com/PyMoDAQ/PyMoDAQ.git@dev#subdirectory=packages/pymodaq_gui",
+    "pymodaq_utils @ git+https://github.com/PyMoDAQ/PyMoDAQ.git@dev#subdirectory=packages/pymodaq_utils",
+    "pymodaq_data @ git+https://github.com/PyMoDAQ/PyMoDAQ.git@dev#subdirectory=packages/pymodaq_data",
     "pymodaq_plugins_utils>=5.3.6",
 ]
 
