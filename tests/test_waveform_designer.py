@@ -263,3 +263,17 @@ def test_an_error_of_the_target_while_loading_is_an_error_of_the_actuator(design
 
     assert wait_for(lambda: actuator._in_error)
     assert not done
+
+
+def test_without_target_a_parameter_actuator_sets_the_parameter_and_its_move_is_done():
+    register('WaveformParameter', DAQ_Move_WaveformParameter)
+    with loaded_extension(WaveformDesigner) as (dashboard, extension):
+        actuator = _actuator_on_amplitude(extension)
+        done = []
+        actuator.move_done_signal.connect(done.append)
+
+        actuator.move_abs(DataActuator('amplitude', data=0.5))
+
+        assert wait_for(lambda: done)
+        assert extension.settings['channels', 'ch0', 'parameters', 'amplitude'] == 0.5
+        assert not actuator._in_error

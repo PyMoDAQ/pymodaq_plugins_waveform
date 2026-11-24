@@ -378,6 +378,9 @@ class WaveformDesigner(CustomExt):
         finally:
             self._silent = False
         self.show_preview()  # also when the waveforms cannot be sent
+        if self.target is None:  # nothing to load them in: setting the parameter and the preview is all there is, ok to test
+            self._answer(True)
+            return
         self._waiting_for_target = True
         if not self.send():
             self._waiting_for_target = False
