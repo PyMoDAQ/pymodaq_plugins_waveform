@@ -401,7 +401,6 @@ class WaveformDesigner(CustomExt):
 
     def _quit_fun(self) -> bool:
         self.waveform_manager.quit_fun()
-        self.waveform_manager.mainwindow.deleteLater()  # its window is never shown but it is not deleted by its quit
         if self._parameter_actuators:
             self.dashboard.remove_modules(self._parameter_actuators)
         return True
