@@ -80,7 +80,6 @@ class WaveformDesigner(CustomExt):
         self.dashboard.modules_manager.modules_added_signal.connect(self.on_modules_added)
         self.parameter_requested.connect(self.on_parameter_request)
         self.refresh_targets()
-        self.setup_waveform_manager()
 
     def setup_waveform_manager(self):
         """The manager of the saved waveforms: its actions are in a toolbar of the extension, its window is not shown.
@@ -119,7 +118,7 @@ class WaveformDesigner(CustomExt):
         self.create_dashboard_toolbar(add_break=False)
     def get_app_toolbars(self) -> list[QtWidgets.QToolBar]:
         """The toolbars shown in the window of the extension: also the one of the manager"""
-        return [self.toolbar, self.get_toolbar('waveform_manager')]
+        return [self.toolbar]
 
     def validate_config(self) -> bool:
         return True
@@ -400,8 +399,6 @@ class WaveformDesigner(CustomExt):
             self._answer(True)
 
     def _quit_fun(self) -> bool:
-        self.waveform_manager.quit_fun()
-        self.waveform_manager.mainwindow.deleteLater()  # its window is never shown but it is not deleted by its quit
         if self._parameter_actuators:
             self.dashboard.remove_modules(self._parameter_actuators)
         return True
