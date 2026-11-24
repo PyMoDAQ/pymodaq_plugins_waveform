@@ -26,7 +26,7 @@ any actuator whose plugin follows the waveform output contract of ``pymodaq_plug
 (NI-DAQmx analog outputs, Red Pitaya...). It can create ``Waveform parameter`` actuators that a scan moves to change a
 parameter of a waveform. It is under development: nothing is released yet.
 
-This branch targets **PyMoDAQ 5.3.x** (Python 3.11 to 3.13).
+This branch targets **PyMoDAQ 5.3.x** (Python 3.11 to 3.14).
 
 Authors
 =======
