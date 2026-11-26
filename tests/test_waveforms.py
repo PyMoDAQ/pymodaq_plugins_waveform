@@ -17,7 +17,7 @@ def create_waveform(name, **parameters):
 
 def test_registry_has_the_standard_forms():
     assert {'dc', 'sine', 'square', 'triangle', 'sawtooth', 'ramp', 'pulse', 'piecewise',
-            'array'} <= set(WaveformFactory.names())
+            'file'} <= set(WaveformFactory.names())
     assert WaveformFactory.get_class('sine') is wf.Sine and wf.Sine.name == 'sine'
     with pytest.raises(KeyError, match='Unknown waveform'):
         create_waveform('nope')
@@ -135,13 +135,13 @@ def test_breakpoints_errors(text, message):
 
 def test_array_from_values_and_from_files(tmp_path):
     values = np.array([0., 1., 0.5])
-    assert create_waveform('array', values=values).to_samples(100.).samples.tolist() == values.tolist()
+    assert create_waveform('file', values=values).to_samples(100.).samples.tolist() == values.tolist()
     np.save(tmp_path / 'wave.npy', values)
-    assert create_waveform('array', path=str(tmp_path / 'wave.npy')).to_samples(100.).samples.tolist() == values.tolist()
+    assert create_waveform('file', path=str(tmp_path / 'wave.npy')).to_samples(100.).samples.tolist() == values.tolist()
     (tmp_path / 'wave.csv').write_text('0\n1\n0.5\n')
-    assert create_waveform('array', path=str(tmp_path / 'wave.csv')).to_samples(100.).samples.tolist() == values.tolist()
+    assert create_waveform('file', path=str(tmp_path / 'wave.csv')).to_samples(100.).samples.tolist() == values.tolist()
     with pytest.raises(ValueError, match='No file'):
-        create_waveform('array').to_samples(100.)
+        create_waveform('file').to_samples(100.)
 
 
 def test_pint_quantities_are_converted():
@@ -158,7 +158,7 @@ def test_limits():
 
 
 @pytest.mark.parametrize('name', ['dc', 'sine', 'square', 'triangle', 'sawtooth', 'ramp', 'pulse', 'piecewise',
-                                  'array'])
+                                  'file'])
 def test_settings_roundtrip(name):
     """The params make a settings group and the waveform is read back from it"""
     cls = WaveformFactory.get_class(name)
@@ -213,7 +213,7 @@ def test_waveform_field_refuses_inconsistent_arguments():
 
 def test_only_the_numbers_are_scannable_by_default():
     assert WaveformFactory.get_class('sine').scannable_parameters() == ['amplitude', 'frequency', 'offset', 'phase']
-    assert 'path' not in WaveformFactory.get_class('array').scannable_parameters()
+    assert 'path' not in WaveformFactory.get_class('file').scannable_parameters()
 
 
 def test_a_text_parameter_cannot_be_declared_scannable():

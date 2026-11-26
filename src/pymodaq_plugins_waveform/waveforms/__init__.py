@@ -9,7 +9,7 @@ import pkgutil
 for _module in pkgutil.iter_modules(__path__):
     importlib.import_module(f'{__name__}.{_module.name}')
 
-from pymodaq_plugins_waveform.waveforms.array import Array  # noqa: E402,F401
+from pymodaq_plugins_waveform.waveforms.file import File  # noqa: E402,F401
 from pymodaq_plugins_waveform.waveforms.dc import DC  # noqa: E402,F401
 from pymodaq_plugins_waveform.waveforms.piecewise import Piecewise, parse_breakpoints  # noqa: E402,F401
 from pymodaq_plugins_waveform.waveforms.pulse import Pulse  # noqa: E402,F401
